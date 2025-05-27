@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>MainWindow</class>
+ <widget class="QMainWindow" name="MainWindow">
+  <property name="windowTitle">
+   <string>Приложение-шифровальщик</string>
+  </property>
+  <widget class="QWidget" name="centralwidget">
+   <layout class="QVBoxLayout" name="verticalLayout">
+    <item>
+     <widget class="QComboBox" name="cipherSelector"/>
+    </item>
+    <item>
+     <widget class="QComboBox" name="alphabetSelector"/>
+    </item>
+    <item>
+     <widget class="QLabel" name="alphabetDisplay"/>
+    </item>
+    <item>
+     <widget class="QTextEdit" name="inputText"/>
+    </item>
+    <item>
+     <widget class="QLineEdit" name="keyInput">
+      <property name="placeholderText">
+       <string>Введите ключ</string>
+      </property>
+     </widget>
+    </item>
+    <item>
+     <widget class="QPushButton" name="encryptButton">
+      <property name="text">
+       <string>Зашифровать</string>
+      </property>
+     </widget>
+    </item>
+    <item>
+     <widget class="QTextEdit" name="outputText">
+      <property name="readOnly">
+       <bool>true</bool>
+      </property>
+     </widget>
+    </item>
+    <item>
+     <widget class="QPushButton" name="exportButton">
+      <property name="text">
+       <string>Экспорт</string>
+      </property>
+     </widget>
+    </item>
+   </layout>
+  </widget>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>
