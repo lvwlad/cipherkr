@@ -20,15 +20,6 @@ MainWindow::MainWindow(QWidget* parent)
         rsaEncrypt
     };
 
-    for (const auto& name : cipherNames) {
-        ui->cipherSelector->addItem(name);
-    }
-
-    // Алфавиты
-    ui->alphabetSelector->addItem("English");
-    ui->alphabetSelector->addItem("Russian");
-    ui->alphabetSelector->addItem("Custom...");
-
     // Соединения
     connect(ui->alphabetSelector, &QComboBox::currentIndexChanged, this, &MainWindow::onAlphabetChanged);
     connect(ui->cipherSelector, &QComboBox::currentIndexChanged, this, &MainWindow::onCipherChanged);
@@ -48,6 +39,7 @@ MainWindow::~MainWindow() {
     delete ui;
 }
 
+// Остальной код остаётся без изменений
 void MainWindow::onCipherChanged(int index) {
     ui->cipherInputStack->setCurrentIndex(index);
     ui->decryptButton->setEnabled(index == 4);
