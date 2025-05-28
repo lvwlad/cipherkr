@@ -4,8 +4,8 @@
 #include <QFileDialog>
 #include <QMessageBox>
 #include <QInputDialog>
+#include <QtCrypto/QtCrypto>
 #include <variant>
-#include "ciphers.h"
 
 MainWindow::MainWindow(QWidget* parent)
     : QMainWindow(parent), ui(new Ui::MainWindow) {
@@ -13,17 +13,12 @@ MainWindow::MainWindow(QWidget* parent)
 
     // Имена шифров и функции
     cipherNames = {"Caesar", "Atbash", "Beaufort", "Kuznechik", "RSA"};
-    cipherFuncs = QVector<std::variant<std::function<QString(const QString&, const QString&, const QString&)>,
-                                       std::function<QString(const QString&, QString&, QString&)> > > {
+    cipherFuncs = {
         std::function<QString(const QString&, const QString&, const QString&)>(caesarEncrypt),
         std::function<QString(const QString&, const QString&, const QString&)>(atbashEncrypt),
         std::function<QString(const QString&, const QString&, const QString&)>(beaufortEncrypt),
         std::function<QString(const QString&, const QString&, const QString&)>(kuznechikEncrypt),
-        std::function<QString(const QString&, QString&, QString&)>(
-            [this](const QString& text, QString& outPublicKey, QString& outPrivateKey) {
-                return rsaEncrypt(text, outPublicKey, outPrivateKey);
-            }
-            )
+        std::function<QString(const QString&, const QString&, const QString&)>(rsaEncrypt)
     };
 
     for (const auto& name : cipherNames) {
@@ -39,6 +34,10 @@ MainWindow::MainWindow(QWidget* parent)
     connect(ui->encryptButton, &QPushButton::clicked, this, &MainWindow::encryptText);
     connect(ui->decryptButton, &QPushButton::clicked, this, &MainWindow::decryptText);
     connect(ui->exportButton, &QPushButton::clicked, this, &MainWindow::exportResult);
+    connect(ui->generateKeysButton, &QPushButton::clicked, this, &MainWindow::generateRsaKeys);
+
+    // Инициализация QCA
+    static QCA::Initializer init;
 
     onAlphabetChanged(0);
 }
@@ -71,6 +70,18 @@ void MainWindow::updateAlphabetDisplay() {
     ui->alphabetDisplay->setText(currentAlphabet);
 }
 
+void MainWindow::generateRsaKeys() {
+    QCA::KeyGenerator keyGen;
+    QCA::PrivateKey privateKey = keyGen.createRSA(2048); // Генерация ключа длиной 2048 бит
+    if (privateKey.isNull()) {
+        QMessageBox::warning(this, "Ошибка", "Не удалось сгенерировать ключи.");
+        return;
+    }
+    QCA::PublicKey publicKey = privateKey.toPublicKey();
+    rsaPublicKey = publicKey.toPEM();
+    rsaPrivateKey = privateKey.toPEM();
+}
+
 void MainWindow::encryptText() {
     int idx = ui->cipherSelector->currentIndex();
     QString text = ui->inputText->toPlainText();
@@ -78,7 +89,13 @@ void MainWindow::encryptText() {
     QString result;
 
     if (idx == 4) { // RSA
-        result = std::get<1>(cipherFuncs[idx])(text, rsaPublicKey, rsaPrivateKey);
+        // Генерируем ключи, если их ещё нет
+        if (rsaPublicKey.isEmpty() || rsaPrivateKey.isEmpty()) {
+            generateRsaKeys();
+        }
+        // Используем сгенерированный публичный ключ
+        result = std::get<0>(cipherFuncs[idx])(text, rsaPublicKey, currentAlphabet);
+        // Показываем ключи и результат
         ui->outputText->setPlainText(result + "\n\nPublic Key:\n" + rsaPublicKey + "\nPrivate Key:\n" + rsaPrivateKey);
     } else {
         result = std::get<0>(cipherFuncs[idx])(text, key, currentAlphabet);
@@ -94,6 +111,10 @@ void MainWindow::decryptText() {
 
     QString base64Text = ui->inputText->toPlainText();
     QString privateKey = ui->privateKeyInput->toPlainText();
+    if (privateKey.isEmpty()) {
+        QMessageBox::warning(this, "Ошибка", "Введите приватный ключ для расшифровки.");
+        return;
+    }
     QString result = rsaDecrypt(base64Text, privateKey);
     ui->outputText->setPlainText(result);
 }

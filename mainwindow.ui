@@ -38,6 +38,13 @@
      </widget>
     </item>
     <item>
+     <widget class="QPushButton" name="generateKeysButton">
+      <property name="text">
+       <string>Сгенерировать ключи</string>
+      </property>
+     </widget>
+    </item>
+    <item>
      <widget class="QPushButton" name="encryptButton">
       <property name="text">
        <string>Зашифровать</string>
@@ -69,5 +76,12 @@
   </widget>
  </widget>
  <resources/>
- <connections/>
+ <connections>
+  <connection>
+   <sender>generateKeysButton</sender>
+   <signal>clicked()</signal>
+   <receiver>generateKeys</receiver>
+   <slot>generateRsaKeys()</slot>
+  </connection>
+ </connections>
 </ui>

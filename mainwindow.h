@@ -20,18 +20,18 @@ private slots:
     void encryptText();
     void decryptText();
     void exportResult();
+    void generateRsaKeys(); // Новая функция для генерации ключей
 
 private:
     Ui::MainWindow* ui;
     QVector<QString> cipherNames;
-    // Используем variant для хранения функций с разными сигнатурами
     using CipherFunc = std::variant<
         std::function<QString(const QString&, const QString&, const QString&)>,
         std::function<QString(const QString&, QString&, QString&)>
         >;
     QVector<CipherFunc> cipherFuncs;
     QString currentAlphabet;
-    QString rsaPublicKey;   // Для хранения публичного ключа
-    QString rsaPrivateKey;  // Для хранения приватного ключа
+    QString rsaPublicKey;   // Хранит публичный ключ
+    QString rsaPrivateKey;  // Хранит приватный ключ
     void updateAlphabetDisplay();
 };

@@ -1,10 +1,11 @@
 #include <QString>
 #include <QByteArray>
-#include <QtCrypto/QtCrypto>  // Именно так
+#include <QtCrypto/QtCrypto>
 
-// Инициализация QCA (лучше делать один раз, но для примера тут)
+// Инициализация QCA
 static QCA::Initializer init;
 
+// Helper: case-insensitive index
 int indexOfIgnoreCase(const QString& alphabet, QChar c) {
     for (int i = 0; i < alphabet.size(); ++i) {
         if (alphabet[i].toCaseFolded() == c.toCaseFolded())
@@ -17,7 +18,7 @@ QChar adjustCase(QChar resultChar, QChar original) {
     return original.isLower() ? resultChar.toLower() : resultChar.toUpper();
 }
 
-// Caesar
+// Caesar cipher
 QString caesarEncrypt(const QString& text, const QString& key, const QString& alphabet) {
     bool ok;
     int shift = key.toInt(&ok);
@@ -29,13 +30,12 @@ QString caesarEncrypt(const QString& text, const QString& key, const QString& al
         if (idx >= 0) {
             int newIdx = (idx + shift + n) % n;
             result.append(adjustCase(alphabet[newIdx], c));
-        } else
-            result.append(c);
+        } else result.append(c);
     }
     return result;
 }
 
-// Atbash
+// Atbash cipher
 QString atbashEncrypt(const QString& text, const QString& key, const QString& alphabet) {
     Q_UNUSED(key);
     QString result;
@@ -50,7 +50,7 @@ QString atbashEncrypt(const QString& text, const QString& key, const QString& al
     return result;
 }
 
-// Beaufort
+// Beaufort cipher
 QString beaufortEncrypt(const QString& text, const QString& key, const QString& alphabet) {
     QString result;
     int n = alphabet.size();
@@ -62,13 +62,12 @@ QString beaufortEncrypt(const QString& text, const QString& key, const QString& 
             int kidx = indexOfIgnoreCase(alphabet, key[i % m]);
             int newIdx = (kidx - idx + n) % n;
             result.append(adjustCase(alphabet[newIdx], c));
-        } else
-            result.append(c);
+        } else result.append(c);
     }
     return result;
 }
 
-// Kuznechik (простой XOR)
+// Kuznechik (stub)
 QString kuznechikEncrypt(const QString& text, const QString& key, const QString& alphabet) {
     Q_UNUSED(alphabet);
     QByteArray data = text.toUtf8();
@@ -79,53 +78,43 @@ QString kuznechikEncrypt(const QString& text, const QString& key, const QString&
     return QString::fromUtf8(data.toBase64());
 }
 
-// RSA
+// RSA Encrypt
 QString rsaEncrypt(const QString& text, const QString& key, const QString& alphabet) {
-    Q_UNUSED(alphabet);
-
-    QCA::PublicKey pub = QCA::PublicKey::fromPEM(key.toUtf8());
-
-    if (pub.isNull()) {
-        qWarning("Invalid public key");
+    Q_UNUSED(alphabet); // alphabet не используется для RSA
+    QCA::PublicKey publicKey = QCA::PublicKey::fromPEM(key.toUtf8());
+    if (publicKey.isNull()) {
+        qWarning("Недействительный публичный ключ.");
         return QString();
     }
 
-    QCA::SecureArray encrypted = pub.encrypt(text.toUtf8(), QCA::EME_PKCS1_OAEP);
-
+    QCA::SecureArray encrypted = publicKey.encrypt(text.toUtf8(), QCA::EME_PKCS1_OAEP);
     if (encrypted.isEmpty()) {
-        qWarning("Encryption failed");
+        qWarning("Ошибка шифрования.");
         return QString();
     }
-
-    QByteArray encryptedBytes = encrypted.data();
-    QString encryptedBase64 = encryptedBytes.toBase64();
-
-    return encryptedBase64;
+    return QString(encrypted.toByteArray().toBase64());
 }
 
+// RSA Decrypt
 QString rsaDecrypt(const QString& base64Text, const QString& privateKeyPem) {
-    // 1. Загружаем приватный ключ из строки PEM
     QCA::PrivateKey privateKey = QCA::PrivateKey::fromPEM(privateKeyPem.toUtf8());
     if (privateKey.isNull()) {
-        qWarning("Недействительный приватный ключ");
+        qWarning("Недействительный приватный ключ.");
         return QString();
     }
 
-    // 2. Преобразуем зашифрованный текст из Base64 в массив байтов
     QByteArray encryptedBytes = QByteArray::fromBase64(base64Text.toUtf8());
     if (encryptedBytes.isEmpty()) {
-        qWarning("Некорректный зашифрованный текст в формате Base64");
+        qWarning("Некорректный зашифрованный текст в формате Base64.");
         return QString();
     }
 
-    // 3. Расшифровываем данные с помощью приватного ключа
     QCA::SecureArray decrypted;
     bool success = privateKey.decrypt(encryptedBytes, &decrypted, QCA::EME_PKCS1_OAEP);
     if (!success || decrypted.isEmpty()) {
-        qWarning("Ошибка расшифровки");
+        qWarning("Ошибка расшифровки.");
         return QString();
     }
 
-    // 4. Преобразуем расшифрованные байты в строку и возвращаем
     return QString::fromUtf8(decrypted.data(), decrypted.size());
 }
