@@ -17,21 +17,19 @@ public:
 
 private slots:
     void onAlphabetChanged(int index);
+    void onCipherChanged(int index); // Added
     void encryptText();
     void decryptText();
     void exportResult();
-    void generateRsaKeys(); // Новая функция для генерации ключей
+    void generateRsaKeys();
 
 private:
     Ui::MainWindow* ui;
     QVector<QString> cipherNames;
-    using CipherFunc = std::variant<
-        std::function<QString(const QString&, const QString&, const QString&)>,
-        std::function<QString(const QString&, QString&, QString&)>
-        >;
+    using CipherFunc = std::function<QString(const QString&, const QString&, const QString&)>; // Simplified
     QVector<CipherFunc> cipherFuncs;
     QString currentAlphabet;
-    QString rsaPublicKey;   // Хранит публичный ключ
-    QString rsaPrivateKey;  // Хранит приватный ключ
+    QString rsaPublicKey;
+    QString rsaPrivateKey;
     void updateAlphabetDisplay();
 };

@@ -2,59 +2,233 @@
 <ui version="4.0">
  <class>MainWindow</class>
  <widget class="QMainWindow" name="MainWindow">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>800</width>
+    <height>600</height>
+   </rect>
+  </property>
   <property name="windowTitle">
    <string>Приложение-шифровальщик</string>
   </property>
   <widget class="QWidget" name="centralwidget">
    <layout class="QVBoxLayout" name="verticalLayout">
     <item>
-     <widget class="QComboBox" name="cipherSelector"/>
+     <layout class="QHBoxLayout" name="topLayout">
+      <item>
+       <widget class="QLabel" name="cipherLabel">
+        <property name="text">
+         <string>Выберите шифр:</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QComboBox" name="cipherSelector">
+        <item>
+         <property name="text">
+          <string>Caesar</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>Atbash</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>Beaufort</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>Kuznechik</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>RSA</string>
+         </property>
+        </item>
+       </widget>
+      </item>
+      <item>
+       <widget class="QLabel" name="alphabetLabel">
+        <property name="text">
+         <string>Алфавит:</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QComboBox" name="alphabetSelector">
+        <item>
+         <property name="text">
+          <string>English</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>Russian</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>Custom...</string>
+         </property>
+        </item>
+       </widget>
+      </item>
+     </layout>
     </item>
     <item>
-     <widget class="QComboBox" name="alphabetSelector"/>
-    </item>
-    <item>
-     <widget class="QLabel" name="alphabetDisplay"/>
-    </item>
-    <item>
-     <widget class="QTextEdit" name="inputText">
-      <property name="placeholderText">
-       <string>Введите текст</string>
-      </property>
-     </widget>
-    </item>
-    <item>
-     <widget class="QLineEdit" name="keyInput">
-      <property name="placeholderText">
-       <string>Введите ключ</string>
-      </property>
-     </widget>
-    </item>
-    <item>
-     <widget class="QTextEdit" name="privateKeyInput">
-      <property name="placeholderText">
-       <string>Введите приватный ключ для RSA</string>
-      </property>
-     </widget>
-    </item>
-    <item>
-     <widget class="QPushButton" name="generateKeysButton">
+     <widget class="QLabel" name="alphabetDisplayLabel">
       <property name="text">
-       <string>Сгенерировать ключи</string>
+       <string>Текущий алфавит:</string>
       </property>
      </widget>
     </item>
     <item>
-     <widget class="QPushButton" name="encryptButton">
-      <property name="text">
-       <string>Зашифровать</string>
+     <widget class="QLineEdit" name="alphabetDisplay">
+      <property name="readOnly">
+       <bool>true</bool>
       </property>
      </widget>
     </item>
     <item>
-     <widget class="QPushButton" name="decryptButton">
+     <widget class="QStackedWidget" name="cipherInputStack">
+      <widget class="QWidget" name="caesarPanel">
+       <layout class="QVBoxLayout" name="caesarLayout">
+        <item>
+         <widget class="QLabel" name="caesarKeyLabel">
+          <property name="toolTip">
+           <string>Укажите числовое значение для сдвига (например, 3).</string>
+          </property>
+          <property name="text">
+           <string>Введите сдвиг (число):</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QLineEdit" name="caesarKeyInput">
+          <property name="placeholderText">
+           <string>Например, 3</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+      <widget class="QWidget" name="atbashPanel">
+       <layout class="QVBoxLayout" name="atbashLayout">
+        <item>
+         <widget class="QLabel" name="atbashInfoLabel">
+          <property name="text">
+           <string>Шифр Atbash не требует ключа.</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+      <widget class="QWidget" name="beaufortPanel">
+       <layout class="QVBoxLayout" name="beaufortLayout">
+        <item>
+         <widget class="QLabel" name="beaufortKeyLabel">
+          <property name="toolTip">
+           <string>Укажите текстовый ключ для шифра Beaufort.</string>
+          </property>
+          <property name="text">
+           <string>Введите ключ (текст):</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QLineEdit" name="beaufortKeyInput">
+          <property name="placeholderText">
+           <string>Например, KEY</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+      <widget class="QWidget" name="kuznechikPanel">
+       <layout class="QVBoxLayout" name="kuznechikLayout">
+        <item>
+         <widget class="QLabel" name="kuznechikKeyLabel">
+          <property name="toolTip">
+           <string>Укажите текстовый ключ для шифра Kuznechik.</string>
+          </property>
+          <property name="text">
+           <string>Введите ключ (текст):</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QLineEdit" name="kuznechikKeyInput">
+          <property name="placeholderText">
+           <string>Например, secret</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+      <widget class="QWidget" name="rsaPanel">
+       <layout class="QVBoxLayout" name="rsaLayout">
+        <item>
+         <widget class="QPushButton" name="generateKeysButton">
+          <property name="text">
+           <string>Сгенерировать ключи</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QLabel" name="publicKeyLabel">
+          <property name="text">
+           <string>Публичный ключ:</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QTextEdit" name="publicKeyInput">
+          <property name="readOnly">
+           <bool>true</bool>
+          </property>
+          <property name="placeholderText">
+           <string>Публичный ключ появится после генерации</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QLabel" name="privateKeyLabel">
+          <property name="text">
+           <string>Приватный ключ (для расшифровки):</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QTextEdit" name="privateKeyInput">
+          <property name="placeholderText">
+           <string>Введите приватный ключ для расшифровки</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+     </widget>
+    </item>
+    <item>
+     <widget class="QLabel" name="inputTextLabel">
       <property name="text">
-       <string>Расшифровать (RSA)</string>
+       <string>Введите текст:</string>
+      </property>
+     </widget>
+    </item>
+    <item>
+     <widget class="QTextEdit" name="inputText"/>
+    </item>
+    <item>
+     <widget class="QLabel" name="outputTextLabel">
+      <property name="text">
+       <string>Результат:</string>
       </property>
      </widget>
     </item>
@@ -66,11 +240,29 @@
      </widget>
     </item>
     <item>
-     <widget class="QPushButton" name="exportButton">
-      <property name="text">
-       <string>Экспорт</string>
-      </property>
-     </widget>
+     <layout class="QHBoxLayout" name="buttonLayout">
+      <item>
+       <widget class="QPushButton" name="encryptButton">
+        <property name="text">
+         <string>Зашифровать</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="decryptButton">
+        <property name="text">
+         <string>Расшифровать (RSA)</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="exportButton">
+        <property name="text">
+         <string>Экспорт</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
     </item>
    </layout>
   </widget>
@@ -80,8 +272,21 @@
   <connection>
    <sender>generateKeysButton</sender>
    <signal>clicked()</signal>
-   <receiver>generateKeys</receiver>
+   <receiver>MainWindow</receiver>
    <slot>generateRsaKeys()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+   </hints>
   </connection>
  </connections>
+ <slots>
+  <slot>generateRsaKeys()</slot>
+ </slots>
 </ui>

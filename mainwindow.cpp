@@ -5,7 +5,6 @@
 #include <QMessageBox>
 #include <QInputDialog>
 #include <QtCrypto/QtCrypto>
-#include <variant>
 
 MainWindow::MainWindow(QWidget* parent)
     : QMainWindow(parent), ui(new Ui::MainWindow) {
@@ -14,11 +13,11 @@ MainWindow::MainWindow(QWidget* parent)
     // Имена шифров и функции
     cipherNames = {"Caesar", "Atbash", "Beaufort", "Kuznechik", "RSA"};
     cipherFuncs = {
-        std::function<QString(const QString&, const QString&, const QString&)>(caesarEncrypt),
-        std::function<QString(const QString&, const QString&, const QString&)>(atbashEncrypt),
-        std::function<QString(const QString&, const QString&, const QString&)>(beaufortEncrypt),
-        std::function<QString(const QString&, const QString&, const QString&)>(kuznechikEncrypt),
-        std::function<QString(const QString&, const QString&, const QString&)>(rsaEncrypt)
+        caesarEncrypt,
+        atbashEncrypt,
+        beaufortEncrypt,
+        kuznechikEncrypt,
+        rsaEncrypt
     };
 
     for (const auto& name : cipherNames) {
@@ -30,7 +29,9 @@ MainWindow::MainWindow(QWidget* parent)
     ui->alphabetSelector->addItem("Russian");
     ui->alphabetSelector->addItem("Custom...");
 
-    connect(ui->alphabetSelector, SIGNAL(currentIndexChanged(int)), this, SLOT(onAlphabetChanged(int)));
+    // Соединения
+    connect(ui->alphabetSelector, &QComboBox::currentIndexChanged, this, &MainWindow::onAlphabetChanged);
+    connect(ui->cipherSelector, &QComboBox::currentIndexChanged, this, &MainWindow::onCipherChanged);
     connect(ui->encryptButton, &QPushButton::clicked, this, &MainWindow::encryptText);
     connect(ui->decryptButton, &QPushButton::clicked, this, &MainWindow::decryptText);
     connect(ui->exportButton, &QPushButton::clicked, this, &MainWindow::exportResult);
@@ -40,10 +41,16 @@ MainWindow::MainWindow(QWidget* parent)
     static QCA::Initializer init;
 
     onAlphabetChanged(0);
+    onCipherChanged(0);
 }
 
 MainWindow::~MainWindow() {
     delete ui;
+}
+
+void MainWindow::onCipherChanged(int index) {
+    ui->cipherInputStack->setCurrentIndex(index);
+    ui->decryptButton->setEnabled(index == 4);
 }
 
 void MainWindow::onAlphabetChanged(int index) {
@@ -72,7 +79,7 @@ void MainWindow::updateAlphabetDisplay() {
 
 void MainWindow::generateRsaKeys() {
     QCA::KeyGenerator keyGen;
-    QCA::PrivateKey privateKey = keyGen.createRSA(2048); // Генерация ключа длиной 2048 бит
+    QCA::PrivateKey privateKey = keyGen.createRSA(2048);
     if (privateKey.isNull()) {
         QMessageBox::warning(this, "Ошибка", "Не удалось сгенерировать ключи.");
         return;
@@ -80,27 +87,32 @@ void MainWindow::generateRsaKeys() {
     QCA::PublicKey publicKey = privateKey.toPublicKey();
     rsaPublicKey = publicKey.toPEM();
     rsaPrivateKey = privateKey.toPEM();
+    ui->publicKeyInput->setPlainText(rsaPublicKey);
+    ui->privateKeyInput->setPlainText(rsaPrivateKey);
 }
 
 void MainWindow::encryptText() {
     int idx = ui->cipherSelector->currentIndex();
     QString text = ui->inputText->toPlainText();
-    QString key = ui->keyInput->text();
+    QString key;
     QString result;
 
-    if (idx == 4) { // RSA
-        // Генерируем ключи, если их ещё нет
+    // Получить ключ в зависимости от шифра
+    if (idx == 0) { // Caesar
+        key = ui->caesarKeyInput->text();
+    } else if (idx == 2) { // Beaufort
+        key = ui->beaufortKeyInput->text();
+    } else if (idx == 3) { // Kuznechik
+        key = ui->kuznechikKeyInput->text();
+    } else if (idx == 4) { // RSA
         if (rsaPublicKey.isEmpty() || rsaPrivateKey.isEmpty()) {
             generateRsaKeys();
         }
-        // Используем сгенерированный публичный ключ
-        result = std::get<0>(cipherFuncs[idx])(text, rsaPublicKey, currentAlphabet);
-        // Показываем ключи и результат
-        ui->outputText->setPlainText(result + "\n\nPublic Key:\n" + rsaPublicKey + "\nPrivate Key:\n" + rsaPrivateKey);
-    } else {
-        result = std::get<0>(cipherFuncs[idx])(text, key, currentAlphabet);
-        ui->outputText->setPlainText(result);
-    }
+        key = rsaPublicKey;
+    } // Atbash (idx == 1) не требует ключа
+
+    result = cipherFuncs[idx](text, key, currentAlphabet);
+    ui->outputText->setPlainText(result);
 }
 
 void MainWindow::decryptText() {
