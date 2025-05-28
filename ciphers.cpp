@@ -103,3 +103,29 @@ QString rsaEncrypt(const QString& text, const QString& key, const QString& alpha
     return encryptedBase64;
 }
 
+QString rsaDecrypt(const QString& base64Text, const QString& privateKeyPem) {
+    // 1. Загружаем приватный ключ из строки PEM
+    QCA::PrivateKey privateKey = QCA::PrivateKey::fromPEM(privateKeyPem.toUtf8());
+    if (privateKey.isNull()) {
+        qWarning("Недействительный приватный ключ");
+        return QString();
+    }
+
+    // 2. Преобразуем зашифрованный текст из Base64 в массив байтов
+    QByteArray encryptedBytes = QByteArray::fromBase64(base64Text.toUtf8());
+    if (encryptedBytes.isEmpty()) {
+        qWarning("Некорректный зашифрованный текст в формате Base64");
+        return QString();
+    }
+
+    // 3. Расшифровываем данные с помощью приватного ключа
+    QCA::SecureArray decrypted;
+    bool success = privateKey.decrypt(encryptedBytes, &decrypted, QCA::EME_PKCS1_OAEP);
+    if (!success || decrypted.isEmpty()) {
+        qWarning("Ошибка расшифровки");
+        return QString();
+    }
+
+    // 4. Преобразуем расшифрованные байты в строку и возвращаем
+    return QString::fromUtf8(decrypted.data(), decrypted.size());
+}

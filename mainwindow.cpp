@@ -4,6 +4,8 @@
 #include <QFileDialog>
 #include <QMessageBox>
 #include <QInputDialog>
+#include <variant>
+#include "ciphers.h"
 
 MainWindow::MainWindow(QWidget* parent)
     : QMainWindow(parent), ui(new Ui::MainWindow) {
@@ -11,11 +13,22 @@ MainWindow::MainWindow(QWidget* parent)
 
     // Имена шифров и функции
     cipherNames = {"Caesar", "Atbash", "Beaufort", "Kuznechik", "RSA"};
-    cipherFuncs = { caesarEncrypt, atbashEncrypt, beaufortEncrypt, kuznechikEncrypt, rsaEncrypt };
+    cipherFuncs = QVector<std::variant<std::function<QString(const QString&, const QString&, const QString&)>,
+                                       std::function<QString(const QString&, QString&, QString&)> > > {
+        std::function<QString(const QString&, const QString&, const QString&)>(caesarEncrypt),
+        std::function<QString(const QString&, const QString&, const QString&)>(atbashEncrypt),
+        std::function<QString(const QString&, const QString&, const QString&)>(beaufortEncrypt),
+        std::function<QString(const QString&, const QString&, const QString&)>(kuznechikEncrypt),
+        std::function<QString(const QString&, QString&, QString&)>(
+            [this](const QString& text, QString& outPublicKey, QString& outPrivateKey) {
+                return rsaEncrypt(text, outPublicKey, outPrivateKey);
+            }
+            )
+    };
+
     for (const auto& name : cipherNames) {
         ui->cipherSelector->addItem(name);
     }
-
 
     // Алфавиты
     ui->alphabetSelector->addItem("English");
@@ -24,6 +37,7 @@ MainWindow::MainWindow(QWidget* parent)
 
     connect(ui->alphabetSelector, SIGNAL(currentIndexChanged(int)), this, SLOT(onAlphabetChanged(int)));
     connect(ui->encryptButton, &QPushButton::clicked, this, &MainWindow::encryptText);
+    connect(ui->decryptButton, &QPushButton::clicked, this, &MainWindow::decryptText);
     connect(ui->exportButton, &QPushButton::clicked, this, &MainWindow::exportResult);
 
     onAlphabetChanged(0);
@@ -61,7 +75,26 @@ void MainWindow::encryptText() {
     int idx = ui->cipherSelector->currentIndex();
     QString text = ui->inputText->toPlainText();
     QString key = ui->keyInput->text();
-    QString result = cipherFuncs[idx](text, key, currentAlphabet);
+    QString result;
+
+    if (idx == 4) { // RSA
+        result = std::get<1>(cipherFuncs[idx])(text, rsaPublicKey, rsaPrivateKey);
+        ui->outputText->setPlainText(result + "\n\nPublic Key:\n" + rsaPublicKey + "\nPrivate Key:\n" + rsaPrivateKey);
+    } else {
+        result = std::get<0>(cipherFuncs[idx])(text, key, currentAlphabet);
+        ui->outputText->setPlainText(result);
+    }
+}
+
+void MainWindow::decryptText() {
+    if (ui->cipherSelector->currentIndex() != 4) {
+        QMessageBox::warning(this, "Ошибка", "Расшифровка доступна только для RSA.");
+        return;
+    }
+
+    QString base64Text = ui->inputText->toPlainText();
+    QString privateKey = ui->privateKeyInput->toPlainText();
+    QString result = rsaDecrypt(base64Text, privateKey);
     ui->outputText->setPlainText(result);
 }
 
@@ -75,11 +108,22 @@ void MainWindow::exportResult() {
     if (filename.isEmpty()) {
         return;
     }
-    bool ok = Exporter::exportToFile(
-        filename,
-        ui->inputText->toPlainText(),
-        ui->outputText->toPlainText()
-        );
+    bool ok;
+    if (ui->cipherSelector->currentIndex() == 4) { // RSA
+        ok = Exporter::exportToFile(
+            filename,
+            ui->inputText->toPlainText(),
+            ui->outputText->toPlainText(),
+            rsaPublicKey,
+            rsaPrivateKey
+            );
+    } else {
+        ok = Exporter::exportToFile(
+            filename,
+            ui->inputText->toPlainText(),
+            ui->outputText->toPlainText()
+            );
+    }
     if (!ok) {
         QMessageBox::warning(this, "Ошибка", "Не удалось сохранить файл.");
     } else {

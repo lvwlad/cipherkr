@@ -17,7 +17,11 @@
      <widget class="QLabel" name="alphabetDisplay"/>
     </item>
     <item>
-     <widget class="QTextEdit" name="inputText"/>
+     <widget class="QTextEdit" name="inputText">
+      <property name="placeholderText">
+       <string>Введите текст</string>
+      </property>
+     </widget>
     </item>
     <item>
      <widget class="QLineEdit" name="keyInput">
@@ -27,9 +31,23 @@
      </widget>
     </item>
     <item>
+     <widget class="QTextEdit" name="privateKeyInput">
+      <property name="placeholderText">
+       <string>Введите приватный ключ для RSA</string>
+      </property>
+     </widget>
+    </item>
+    <item>
      <widget class="QPushButton" name="encryptButton">
       <property name="text">
        <string>Зашифровать</string>
+      </property>
+     </widget>
+    </item>
+    <item>
+     <widget class="QPushButton" name="decryptButton">
+      <property name="text">
+       <string>Расшифровать (RSA)</string>
       </property>
      </widget>
     </item>
