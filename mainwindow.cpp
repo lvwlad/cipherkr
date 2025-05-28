@@ -10,11 +10,12 @@ MainWindow::MainWindow(QWidget* parent)
     ui->setupUi(this);
 
     // Имена шифров и функции
-    cipherNames = {"Caesar", "Atbash", "Beaufort"};
-    cipherFuncs = { caesarEncrypt, atbashEncrypt, beaufortEncrypt };
+    cipherNames = {"Caesar", "Atbash", "Beaufort", "Kuznechik", "RSA"};
+    cipherFuncs = { caesarEncrypt, atbashEncrypt, beaufortEncrypt, kuznechikEncrypt, rsaEncrypt };
     for (const auto& name : cipherNames) {
         ui->cipherSelector->addItem(name);
     }
+
 
     // Алфавиты
     ui->alphabetSelector->addItem("English");
