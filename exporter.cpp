@@ -1,6 +1,7 @@
 #include "exporter.h"
 #include <QFile>
 #include <QTextStream>
+#include <QDir>
 
 QString getCipherDescription(const QString& cipherName) {
     if (cipherName == "Caesar") {
@@ -25,7 +26,7 @@ QString getCipherDescription(const QString& cipherName) {
     return "Неизвестный шифр.";
 }
 
-bool Exporter::exportToFile(const QString& filename, const QString& input, const QString& output, const QString& cipherName, const QString& publicKey, const QString& privateKey) {
+bool Exporter::exportToText(const QString& filename, const QString& input, const QString& output, const QString& cipherName, const QString& publicKey, const QString& privateKey) {
     QFile file(filename);
     if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
         return false;
@@ -46,6 +47,74 @@ bool Exporter::exportToFile(const QString& filename, const QString& input, const
     return true;
 }
 
+bool Exporter::exportToHtml(const QString& filename, const QString& input, const QString& output, const QString& cipherName, const QString& publicKey, const QString& privateKey) {
+    QFile file(filename);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        return false;
+    }
+
+    QTextStream out(&file);
+    out << "<!DOCTYPE html>\n<html>\n<head><title>Результат шифрования</title></head>\n<body>\n";
+    out << "<h2>Исходный текст:</h2>\n<p>" << input.toHtmlEscaped() << "</p>\n";
+    out << "<h2>Зашифрованный текст:</h2>\n<p>" << output.toHtmlEscaped() << "</p>\n";
+    out << "<h2>Использованный шифр:</h2>\n<p>" << cipherName << "</p>\n";
+    out << "<h2>Описание шифра:</h2>\n<p>" << getCipherDescription(cipherName).toHtmlEscaped() << "</p>\n";
+
+    if (!publicKey.isEmpty() && !privateKey.isEmpty()) {
+        out << "<h2>Ключи (для RSA):</h2>\n";
+        out << "<p><strong>Публичный ключ:</strong><br>" << publicKey.toHtmlEscaped() << "</p>\n";
+        out << "<p><strong>Приватный ключ:</strong><br>" << privateKey.toHtmlEscaped() << "</p>\n";
+    }
+
+    out << "</body>\n</html>";
+    file.close();
+    return true;
+}
+
+bool Exporter::exportToLatex(const QString& filename, const QString& input, const QString& output, const QString& cipherName, const QString& publicKey, const QString& privateKey) {
+    QFile file(filename);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        return false;
+    }
+
+    QTextStream out(&file);
+    out << "\\documentclass[a4paper,12pt]{article}\n";
+    out << "\\usepackage[utf8]{inputenc}\n";
+    out << "\\usepackage[russian]{babel}\n";
+    out << "\\usepackage{geometry}\n";
+    out << "\\geometry{margin=1in}\n";
+    out << "\\usepackage{amsmath}\n";
+    out << "\\usepackage{parskip}\n";
+    out << "\\begin{document}\n";
+    out << "\\section*{Результат шифрования}\n";
+    out << "\\subsection*{Исходный текст}\n" << input << "\\\\\n";
+    out << "\\subsection*{Зашифрованный текст}\n" << output << "\\\\\n";
+    out << "\\subsection*{Использованный шифр}\n" << cipherName << "\\\\\n";
+    out << "\\subsection*{Описание шифра}\n" << getCipherDescription(cipherName) << "\\\\\n";
+
+    if (!publicKey.isEmpty() && !privateKey.isEmpty()) {
+        out << "\\subsection*{Ключи (для RSA)}\n";
+        out << "\\textbf{Публичный ключ:} \\\\" << publicKey << "\\\\\n";
+        out << "\\textbf{Приватный ключ:} \\\\" << privateKey << "\\\\\n";
+    }
+
+    out << "\\end{document}\n";
+    file.close();
+    return true;
+}
+
+bool Exporter::exportToFile(const QString& filename, const QString& input, const QString& output, const QString& cipherName, const QString& publicKey, const QString& privateKey, const QString& format) {
+    if (format == "txt") {
+        return Exporter::exportToText(filename, input, output, cipherName, publicKey, privateKey);
+    } else if (format == "html") {
+        return Exporter::exportToHtml(filename, input, output, cipherName, publicKey, privateKey);
+    } else if (format == "pdf") {
+        QString latexFile = filename.endsWith(".tex") ? filename : (filename + ".tex");
+        return Exporter::exportToLatex(latexFile, input, output, cipherName, publicKey, privateKey);
+    }
+    return false;
+}
+
 bool Exporter::exportToFile(const QString& filename, const QString& input, const QString& output, const QString& cipherName) {
-    return exportToFile(filename, input, output, cipherName, QString(), QString());
+    return exportToFile(filename, input, output, cipherName, QString(), QString(), "txt");
 }

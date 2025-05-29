@@ -174,11 +174,17 @@ void MainWindow::exportResult() {
         this,
         "Сохранить результат",
         QString(),
-        "Text Files (*.txt)"
+        "Text Files (*.txt);;HTML Files (*.html);;LaTeX Files (*.tex)"
         );
     if (filename.isEmpty()) {
         return;
     }
+
+    // Определяем формат по расширению файла
+    QString format = "txt";
+    if (filename.endsWith(".html")) format = "html";
+    else if (filename.endsWith(".tex")) format = "pdf";
+
     bool ok;
     int idx = ui->cipherSelector->currentIndex();
     QString cipherName = cipherNames[idx]; // Получаем название текущего шифра
@@ -189,19 +195,23 @@ void MainWindow::exportResult() {
             ui->outputText->toPlainText(),
             cipherName,
             rsaPublicKey,
-            rsaPrivateKey
+            rsaPrivateKey,
+            format
             );
     } else {
         ok = Exporter::exportToFile(
             filename,
             ui->inputText->toPlainText(),
             ui->outputText->toPlainText(),
-            cipherName
+            cipherName,
+            QString(), // Пустой publicKey
+            QString(), // Пустой privateKey
+            format
             );
     }
     if (!ok) {
         QMessageBox::warning(this, "Ошибка", "Не удалось сохранить файл.");
     } else {
-        QMessageBox::information(this, "Готово", "Файл сохранён.");
+        QMessageBox::information(this, "Готово", "Файл сохранён. Для PDF скомпилируйте .tex файл с помощью latexmk.");
     }
 }
