@@ -1,7 +1,8 @@
 #include "exporter.h"
 #include <QFile>
 #include <QTextStream>
-#include <QDir>
+#include <QJsonObject>
+#include <QJsonDocument>
 
 QString getCipherDescription(const QString& cipherName) {
     if (cipherName == "Caesar") {
@@ -71,34 +72,25 @@ bool Exporter::exportToHtml(const QString& filename, const QString& input, const
     return true;
 }
 
-bool Exporter::exportToLatex(const QString& filename, const QString& input, const QString& output, const QString& cipherName, const QString& publicKey, const QString& privateKey) {
+bool Exporter::exportToJson(const QString& filename, const QString& input, const QString& output, const QString& cipherName, const QString& publicKey, const QString& privateKey) {
     QFile file(filename);
-    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+    if (!file.open(QIODevice::WriteOnly)) {
         return false;
     }
 
-    QTextStream out(&file);
-    out << "\\documentclass[a4paper,12pt]{article}\n";
-    out << "\\usepackage[utf8]{inputenc}\n";
-    out << "\\usepackage[russian]{babel}\n";
-    out << "\\usepackage{geometry}\n";
-    out << "\\geometry{margin=1in}\n";
-    out << "\\usepackage{amsmath}\n";
-    out << "\\usepackage{parskip}\n";
-    out << "\\begin{document}\n";
-    out << "\\section*{Результат шифрования}\n";
-    out << "\\subsection*{Исходный текст}\n" << input << "\\\\\n";
-    out << "\\subsection*{Зашифрованный текст}\n" << output << "\\\\\n";
-    out << "\\subsection*{Использованный шифр}\n" << cipherName << "\\\\\n";
-    out << "\\subsection*{Описание шифра}\n" << getCipherDescription(cipherName) << "\\\\\n";
+    QJsonObject jsonObj;
+    jsonObj["input_text"] = input;
+    jsonObj["encrypted_text"] = output;
+    jsonObj["cipher_name"] = cipherName;
+    jsonObj["cipher_description"] = getCipherDescription(cipherName);
 
     if (!publicKey.isEmpty() && !privateKey.isEmpty()) {
-        out << "\\subsection*{Ключи (для RSA)}\n";
-        out << "\\textbf{Публичный ключ:} \\\\" << publicKey << "\\\\\n";
-        out << "\\textbf{Приватный ключ:} \\\\" << privateKey << "\\\\\n";
+        jsonObj["public_key"] = publicKey;
+        jsonObj["private_key"] = privateKey;
     }
 
-    out << "\\end{document}\n";
+    QJsonDocument doc(jsonObj);
+    file.write(doc.toJson(QJsonDocument::Indented));
     file.close();
     return true;
 }
@@ -108,9 +100,8 @@ bool Exporter::exportToFile(const QString& filename, const QString& input, const
         return Exporter::exportToText(filename, input, output, cipherName, publicKey, privateKey);
     } else if (format == "html") {
         return Exporter::exportToHtml(filename, input, output, cipherName, publicKey, privateKey);
-    } else if (format == "pdf") {
-        QString latexFile = filename.endsWith(".tex") ? filename : (filename + ".tex");
-        return Exporter::exportToLatex(latexFile, input, output, cipherName, publicKey, privateKey);
+    } else if (format == "json") {
+        return Exporter::exportToJson(filename, input, output, cipherName, publicKey, privateKey);
     }
     return false;
 }

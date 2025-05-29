@@ -10,7 +10,7 @@ public:
 
     static bool exportToText(const QString& filename, const QString& input, const QString& output, const QString& cipherName, const QString& publicKey, const QString& privateKey);
     static bool exportToHtml(const QString& filename, const QString& input, const QString& output, const QString& cipherName, const QString& publicKey, const QString& privateKey);
-    static bool exportToLatex(const QString& filename, const QString& input, const QString& output, const QString& cipherName, const QString& publicKey, const QString& privateKey);
+    static bool exportToJson(const QString& filename, const QString& input, const QString& output, const QString& cipherName, const QString& publicKey, const QString& privateKey);
 };
 
 #endif // EXPORTER_H

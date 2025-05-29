@@ -174,7 +174,7 @@ void MainWindow::exportResult() {
         this,
         "Сохранить результат",
         QString(),
-        "Text Files (*.txt);;HTML Files (*.html);;LaTeX Files (*.tex)"
+        "Text Files (*.txt);;HTML Files (*.html);;JSON Files (*.json)"
         );
     if (filename.isEmpty()) {
         return;
@@ -183,7 +183,7 @@ void MainWindow::exportResult() {
     // Определяем формат по расширению файла
     QString format = "txt";
     if (filename.endsWith(".html")) format = "html";
-    else if (filename.endsWith(".tex")) format = "pdf";
+    else if (filename.endsWith(".json")) format = "json";
 
     bool ok;
     int idx = ui->cipherSelector->currentIndex();
@@ -212,6 +212,6 @@ void MainWindow::exportResult() {
     if (!ok) {
         QMessageBox::warning(this, "Ошибка", "Не удалось сохранить файл.");
     } else {
-        QMessageBox::information(this, "Готово", "Файл сохранён. Для PDF скомпилируйте .tex файл с помощью latexmk.");
+        QMessageBox::information(this, "Готово", "Файл сохранён.");
     }
 }
