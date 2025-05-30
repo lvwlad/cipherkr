@@ -1,6 +1,7 @@
 #include "mainwindow.h"
 #include "ui_MainWindow.h"
 #include "exporter.h"
+#include "exportformatdialog.h"
 #include <QFileDialog>
 #include <QMessageBox>
 #include <QInputDialog>
@@ -170,20 +171,50 @@ void MainWindow::decryptText() {
 }
 
 void MainWindow::exportResult() {
+    // Показываем диалоговое окно для выбора формата
+    ExportFormatDialog dialog(this);
+    if (dialog.exec() != QDialog::Accepted) {
+        return; // Пользователь отменил выбор
+    }
+
+    QString format = dialog.getSelectedFormat();
+    if (format.isEmpty()) {
+        QMessageBox::warning(this, "Ошибка", "Формат не выбран.");
+        return;
+    }
+
+    // Определяем фильтр и расширение файла на основе выбранного формата
+    QString filter;
+    QString defaultExtension;
+    if (format == "txt") {
+        filter = "Text Files (*.txt)";
+        defaultExtension = ".txt";
+    } else if (format == "html") {
+        filter = "HTML Files (*.html)";
+        defaultExtension = ".html";
+    } else if (format == "json") {
+        filter = "JSON Files (*.json)";
+        defaultExtension = ".json";
+    } else {
+        QMessageBox::warning(this, "Ошибка", "Неподдерживаемый формат.");
+        return;
+    }
+
+    // Открываем диалог сохранения файла с нужным фильтром
     QString filename = QFileDialog::getSaveFileName(
         this,
         "Сохранить результат",
         QString(),
-        "Text Files (*.txt);;HTML Files (*.html);;JSON Files (*.json)"
+        filter
         );
     if (filename.isEmpty()) {
         return;
     }
 
-    // Определяем формат по расширению файла
-    QString format = "txt";
-    if (filename.endsWith(".html")) format = "html";
-    else if (filename.endsWith(".json")) format = "json";
+    // Добавляем расширение, если пользователь его не указал
+    if (!filename.endsWith(defaultExtension)) {
+        filename += defaultExtension;
+    }
 
     bool ok;
     int idx = ui->cipherSelector->currentIndex();

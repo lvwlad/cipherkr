@@ -29,6 +29,8 @@ set(PROJECT_SOURCES
         ciphers.cpp
         exporter.h
         exporter.cpp
+        exportformatdialog.h
+        exportformatdialog.cpp
 )
 
 # Создание исполняемого файла
