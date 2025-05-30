@@ -2,7 +2,6 @@
 #include <QMainWindow>
 #include <QVector>
 #include <functional>
-#include <variant>
 #include "ciphers.h"
 
 QT_BEGIN_NAMESPACE
@@ -17,7 +16,7 @@ public:
 
 private slots:
     void onAlphabetChanged(int index);
-    void onCipherChanged(int index); // Added
+    void onCipherChanged(int index);
     void encryptText();
     void decryptText();
     void exportResult();
@@ -26,7 +25,7 @@ private slots:
 private:
     Ui::MainWindow* ui;
     QVector<QString> cipherNames;
-    using CipherFunc = std::function<QString(const QString&, const QString&, const QString&)>; // Simplified
+    using CipherFunc = std::function<QString(const QString&, const QString&, const QString&)>;
     QVector<CipherFunc> cipherFuncs;
     QString currentAlphabet;
     QString rsaPublicKey;

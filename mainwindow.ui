@@ -51,6 +51,26 @@
           <string>RSA</string>
          </property>
         </item>
+        <item>
+         <property name="text">
+          <string>AES-256</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>Blowfish</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>3DES</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>CAST5</string>
+         </property>
+        </item>
        </widget>
       </item>
       <item>
@@ -97,15 +117,16 @@
     </item>
     <item>
      <widget class="QStackedWidget" name="cipherInputStack">
+      <!-- Caesar Input Panel -->
       <widget class="QWidget" name="caesarPanel">
        <layout class="QVBoxLayout" name="caesarLayout">
         <item>
          <widget class="QLabel" name="caesarKeyLabel">
-          <property name="toolTip">
-           <string>Укажите числовое значение для сдвига (например, 3).</string>
-          </property>
           <property name="text">
            <string>Введите сдвиг (число):</string>
+          </property>
+          <property name="toolTip">
+           <string>Укажите числовое значение для сдвига (например, 3).</string>
           </property>
          </widget>
         </item>
@@ -118,6 +139,7 @@
         </item>
        </layout>
       </widget>
+      <!-- Atbash Input Panel -->
       <widget class="QWidget" name="atbashPanel">
        <layout class="QVBoxLayout" name="atbashLayout">
         <item>
@@ -129,15 +151,16 @@
         </item>
        </layout>
       </widget>
+      <!-- Beaufort Input Panel -->
       <widget class="QWidget" name="beaufortPanel">
        <layout class="QVBoxLayout" name="beaufortLayout">
         <item>
          <widget class="QLabel" name="beaufortKeyLabel">
-          <property name="toolTip">
-           <string>Укажите текстовый ключ для шифра Beaufort.</string>
-          </property>
           <property name="text">
            <string>Введите ключ (текст):</string>
+          </property>
+          <property name="toolTip">
+           <string>Укажите текстовый ключ для шифра Beaufort.</string>
           </property>
          </widget>
         </item>
@@ -150,15 +173,16 @@
         </item>
        </layout>
       </widget>
+      <!-- Kuznechik Input Panel -->
       <widget class="QWidget" name="kuznechikPanel">
        <layout class="QVBoxLayout" name="kuznechikLayout">
         <item>
          <widget class="QLabel" name="kuznechikKeyLabel">
-          <property name="toolTip">
-           <string>Укажите текстовый ключ для шифра Kuznechik.</string>
-          </property>
           <property name="text">
            <string>Введите ключ (текст):</string>
+          </property>
+          <property name="toolTip">
+           <string>Укажите текстовый ключ для шифра Kuznechik.</string>
           </property>
          </widget>
         </item>
@@ -171,6 +195,7 @@
         </item>
        </layout>
       </widget>
+      <!-- RSA Input Panel -->
       <widget class="QWidget" name="rsaPanel">
        <layout class="QVBoxLayout" name="rsaLayout">
         <item>
@@ -208,6 +233,94 @@
          <widget class="QTextEdit" name="privateKeyInput">
           <property name="placeholderText">
            <string>Введите приватный ключ для расшифровки</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+      <!-- AES-256 Input Panel -->
+      <widget class="QWidget" name="aes256Panel">
+       <layout class="QVBoxLayout" name="aes256Layout">
+        <item>
+         <widget class="QLabel" name="aes256KeyLabel">
+          <property name="text">
+           <string>Введите ключ (текст):</string>
+          </property>
+          <property name="toolTip">
+           <string>Ключ должен быть не менее 32 символов для AES-256.</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QLineEdit" name="aes256KeyInput">
+          <property name="placeholderText">
+           <string>Например, 32 символа</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+      <!-- Blowfish Input Panel -->
+      <widget class="QWidget" name="blowfishPanel">
+       <layout class="QVBoxLayout" name="blowfishLayout">
+        <item>
+         <widget class="QLabel" name="blowfishKeyLabel">
+          <property name="text">
+           <string>Введите ключ (текст):</string>
+          </property>
+          <property name="toolTip">
+           <string>Ключ для Blowfish может быть от 4 до 56 байт.</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QLineEdit" name="blowfishKeyInput">
+          <property name="placeholderText">
+           <string>Например, mysecretkey</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+      <!-- 3DES Input Panel -->
+      <widget class="QWidget" name="tripleDesPanel">
+       <layout class="QVBoxLayout" name="tripleDesLayout">
+        <item>
+         <widget class="QLabel" name="tripleDesKeyLabel">
+          <property name="text">
+           <string>Введите ключ (текст):</string>
+          </property>
+          <property name="toolTip">
+           <string>Ключ для 3DES должен быть 24 байта (например, 24 символа).</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QLineEdit" name="tripleDesKeyInput">
+          <property name="placeholderText">
+           <string>Например, 24 символа</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+      <!-- CAST5 Input Panel -->
+      <widget class="QWidget" name="cast5Panel">
+       <layout class="QVBoxLayout" name="cast5Layout">
+        <item>
+         <widget class="QLabel" name="cast5KeyLabel">
+          <property name="text">
+           <string>Введите ключ (текст):</string>
+          </property>
+          <property name="toolTip">
+           <string>Ключ для CAST5 должен быть от 5 до 16 байт.</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QLineEdit" name="cast5KeyInput">
+          <property name="placeholderText">
+           <string>Например, mycast5key</string>
           </property>
          </widget>
         </item>
@@ -251,7 +364,7 @@
       <item>
        <widget class="QPushButton" name="decryptButton">
         <property name="text">
-         <string>Расшифровать (RSA)</string>
+         <string>Расшифровать</string>
         </property>
        </widget>
       </item>
@@ -268,25 +381,4 @@
   </widget>
  </widget>
  <resources/>
- <connections>
-  <connection>
-   <sender>generateKeysButton</sender>
-   <signal>clicked()</signal>
-   <receiver>MainWindow</receiver>
-   <slot>generateRsaKeys()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>20</x>
-     <y>20</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>20</x>
-     <y>20</y>
-    </hint>
-   </hints>
-  </connection>
- </connections>
- <slots>
-  <slot>generateRsaKeys()</slot>
- </slots>
 </ui>
