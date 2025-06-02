@@ -8,6 +8,7 @@
 #include <QtCrypto/QtCrypto>
 #include "kuz_calc.h"
 #include <functional>
+#include <QDebug>
 
 MainWindow::MainWindow(QWidget* parent)
     : QMainWindow(parent), ui(new Ui::MainWindow) {
@@ -16,7 +17,7 @@ MainWindow::MainWindow(QWidget* parent)
     // Имена шифров
     cipherNames = {"Caesar", "Atbash", "Beaufort", "Kuznechik", "RSA", "AES-256", "Blowfish", "3DES", "CAST5"};
 
-    // Инициализация функций шифрования с помощью std::bind
+    // Инициализация функций шифрования с помощью лямбда-выражений
     cipherFuncs.push_back(std::function<QString(MainWindow*, const QString&, const QString&, const QString&)>(
         [this](MainWindow* obj, const QString& text, const QString& key, const QString& alphabet) {
             return this->caesarEncrypt(text, key, alphabet);
@@ -64,6 +65,16 @@ MainWindow::MainWindow(QWidget* parent)
 
     // Инициализация QCA
     static QCA::Initializer init;
+    qDebug() << "QCA Providers:";
+    foreach (QCA::Provider* provider, QCA::providers()) {
+        qDebug() << "  - Provider:" << provider->name() << "(Features:" << provider->features().join(", ") << ")";
+    }
+    if (!QCA::isSupported("rsa")) {
+        qDebug() << "RSA support is not available in QCA";
+        QMessageBox::critical(this, "Ошибка", "RSA support is not available. Check QCA installation.");
+    } else {
+        qDebug() << "RSA support is available";
+    }
 
     onAlphabetChanged(0);
     onCipherChanged(0);
@@ -107,6 +118,8 @@ void MainWindow::generateRsaKeys() {
     QCA::PrivateKey privateKey = keyGen.createRSA(2048);
     if (privateKey.isNull()) {
         QMessageBox::warning(this, "Ошибка", "Не удалось сгенерировать ключи.");
+        rsaPublicKey.clear();
+        rsaPrivateKey.clear();
         return;
     }
     QCA::PublicKey publicKey = privateKey.toPublicKey();
@@ -114,6 +127,8 @@ void MainWindow::generateRsaKeys() {
     rsaPrivateKey = privateKey.toPEM();
     ui->publicKeyInput->setPlainText(rsaPublicKey);
     ui->privateKeyInput->setPlainText(rsaPrivateKey);
+    qDebug() << "Generated public key length:" << rsaPublicKey.length();
+    qDebug() << "Generated private key length:" << rsaPrivateKey.length();
 }
 
 QString MainWindow::crypt(QString data) {
@@ -173,7 +188,7 @@ void MainWindow::encryptText() {
         key = ui->kuznechikKeyInput->text();
         vector = ui->kuznechikVectorInput->text();
     } else if (idx == 4) { // RSA
-        if (rsaPublicKey.isEmpty() || rsaPrivateKey.isEmpty()) {
+        if (rsaPublicKey.isEmpty()) {
             generateRsaKeys();
         }
         key = rsaPublicKey;
@@ -212,11 +227,12 @@ void MainWindow::decryptText() {
         vector = ui->kuznechikVectorInput->text();
         result = crypt(base64Text); // Кузнечик симметричен, повторное шифрование = расшифровка
     } else if (idx == 4) { // RSA
-        key = ui->privateKeyInput->toPlainText();
-        if (key.isEmpty()) {
-            QMessageBox::warning(this, "Ошибка", "Введите приватный ключ для расшифровки.");
+        if (rsaPrivateKey.isEmpty()) {
+            QMessageBox::warning(this, "Ошибка", "Приватный ключ отсутствует. Пожалуйста, сгенерируйте ключи.");
+            generateRsaKeys();
             return;
         }
+        key = rsaPrivateKey; // Use the stored rsaPrivateKey
         result = rsaDecrypt(base64Text, key);
     } else if (idx == 5) { // AES-256
         key = ui->aes256KeyInput->text();
@@ -243,10 +259,9 @@ void MainWindow::decryptText() {
 }
 
 void MainWindow::exportResult() {
-    // Показываем диалоговое окно для выбора формата
     ExportFormatDialog dialog(this);
     if (dialog.exec() != QDialog::Accepted) {
-        return; // Пользователь отменил выбор
+        return;
     }
 
     QString format = dialog.getSelectedFormat();
@@ -255,7 +270,6 @@ void MainWindow::exportResult() {
         return;
     }
 
-    // Определяем фильтр и расширение файла на основе выбранного формата
     QString filter;
     QString defaultExtension;
     if (format == "txt") {
@@ -272,7 +286,6 @@ void MainWindow::exportResult() {
         return;
     }
 
-    // Открываем диалог сохранения файла с нужным фильтром
     QString filename = QFileDialog::getSaveFileName(
         this,
         "Сохранить результат",
@@ -283,14 +296,13 @@ void MainWindow::exportResult() {
         return;
     }
 
-    // Добавляем расширение, если пользователь его не указал
     if (!filename.endsWith(defaultExtension)) {
         filename += defaultExtension;
     }
 
     bool ok;
     int idx = ui->cipherSelector->currentIndex();
-    QString cipherName = cipherNames[idx]; // Получаем название текущего шифра
+    QString cipherName = cipherNames[idx];
     if (idx == 4) { // RSA
         ok = Exporter::exportToFile(
             filename,
@@ -307,8 +319,8 @@ void MainWindow::exportResult() {
             ui->inputText->toPlainText(),
             ui->outputText->toPlainText(),
             cipherName,
-            QString(), // Пустой publicKey
-            QString(), // Пустой privateKey
+            QString(),
+            QString(),
             format
             );
     }
@@ -319,7 +331,6 @@ void MainWindow::exportResult() {
     }
 }
 
-// Реализации функций шифрования
 QString MainWindow::caesarEncrypt(const QString& text, const QString& key, const QString& alphabet) {
     if (text.isEmpty() || alphabet.isEmpty()) return "Ошибка: Пустой текст или алфавит";
     bool ok;
@@ -390,15 +401,45 @@ QString MainWindow::rsaEncrypt(const QString& text, const QString& key, const QS
     if (text.isEmpty()) return "Ошибка: Пустой текст";
     if (key.isEmpty()) return "Ошибка: Пустой ключ";
 
-    QCA::PublicKey pubKey;
-    pubKey.fromPEM(key);
-    if (!pubKey.canEncrypt()) return "Ошибка: Неверный публичный ключ";
+    QCA::PublicKey pubKey = QCA::PublicKey::fromPEM(key.toUtf8());
+    if (pubKey.isNull()) {
+        qDebug() << "Public key loading failed. Key data:" << key.left(50) << "...";
+        return "Ошибка: Неверный публичный ключ";
+    }
 
-    QCA::SecureArray data = text.toUtf8();
-    QCA::SecureArray encrypted = pubKey.encrypt(data, QCA::EME_PKCS1v15);
-    if (encrypted.isEmpty()) return "Ошибка: Не удалось зашифровать";
+    QCA::SecureArray encrypted = pubKey.encrypt(text.toUtf8(), QCA::EME_PKCS1_OAEP);
+    if (encrypted.isEmpty()) {
+        qDebug() << "Encryption failed.";
+        return "Ошибка: Не удалось зашифровать";
+    }
 
     return QString(encrypted.toByteArray().toBase64());
+}
+
+QString MainWindow::rsaDecrypt(const QString& text, const QString& key) {
+    if (text.isEmpty()) return "Ошибка: Пустой текст";
+    if (key.isEmpty()) return "Ошибка: Пустой ключ";
+
+    QCA::PrivateKey privKey = QCA::PrivateKey::fromPEM(key.toUtf8());
+    if (privKey.isNull()) {
+        qDebug() << "Private key loading failed. Key data:" << key.left(50) << "...";
+        return "Ошибка: Неверный приватный ключ";
+    }
+
+    QByteArray encrypted = QByteArray::fromBase64(text.toUtf8());
+    if (encrypted.isEmpty()) {
+        qDebug() << "Invalid base64 data.";
+        return "Ошибка: Неверный формат зашифрованного текста";
+    }
+
+    QCA::SecureArray decrypted;
+    bool success = privKey.decrypt(encrypted, &decrypted, QCA::EME_PKCS1_OAEP);
+    if (!success || decrypted.isEmpty()) {
+        qDebug() << "Decryption failed. Success:" << success << ", Decrypted size:" << decrypted.size();
+        return "Ошибка: Не удалось расшифровать";
+    }
+
+    return QString::fromUtf8(decrypted.data(), decrypted.size());
 }
 
 QString MainWindow::aes256Encrypt(const QString& text, const QString& key, const QString& alphabet) {
@@ -435,18 +476,53 @@ QString MainWindow::blowfishEncrypt(const QString& text, const QString& key, con
 
 QString MainWindow::tripleDesEncrypt(const QString& text, const QString& key, const QString& alphabet) {
     Q_UNUSED(alphabet);
-    if (text.isEmpty()) return "Ошибка: Пустой текст";
-    if (key.isEmpty()) return "Ошибка: Пустой ключ";
+    if (text.isEmpty()) {
+        qDebug() << "3DES Encrypt: Empty input text";
+        return "Ошибка: Пустой текст";
+    }
+    if (key.isEmpty()) {
+        qDebug() << "3DES Encrypt: Empty key";
+        return "Ошибка: Пустой ключ";
+    }
 
-    QCA::SymmetricKey symKey(key.toUtf8());
-    QCA::InitializationVector iv(8);
-    QCA::Cipher cipher("tripledes", QCA::Cipher::CBC, QCA::Cipher::DefaultPadding, QCA::Encode, symKey, iv);
+    QByteArray keyBytes = key.toUtf8();
+    qDebug() << "3DES Encrypt: Original key length (chars):" << key.length()
+             << "Key length (bytes after toUtf8):" << keyBytes.length();
+
+    if (keyBytes.length() < 24) {
+        keyBytes = keyBytes.leftJustified(24, '\0');
+        qDebug() << "3DES Encrypt: Key padded to 24 bytes";
+    } else if (keyBytes.length() > 24) {
+        keyBytes = keyBytes.left(24);
+        qDebug() << "3DES Encrypt: Key truncated to 24 bytes";
+    }
+
+    QCA::SymmetricKey symKey(keyBytes);
+    qDebug() << "3DES Encrypt: Symmetric key created, length:" << symKey.size();
+
+    QCA::Cipher cipher("tripledes", QCA::Cipher::ECB, QCA::Cipher::NoPadding, QCA::Encode, symKey);
+    qDebug() << "3DES Encrypt: Cipher initialized with ECB mode and NoPadding";
 
     QCA::SecureArray data = text.toUtf8();
-    QCA::SecureArray encrypted = cipher.process(data);
-    if (!cipher.ok()) return "Ошибка: Не удалось зашифровать";
+    if (data.isEmpty()) {
+        qDebug() << "3DES Encrypt: Input data is empty after toUtf8";
+        return "Ошибка: Некорректные входные данные";
+    }
+    qDebug() << "3DES Encrypt: Input data length:" << data.size() << "Data (hex):" << data.toByteArray().toHex();
 
-    return QString((iv + encrypted).toByteArray().toBase64());
+    // Ручное дополнение данных до кратности 8 байт
+    QCA::SecureArray paddedData = padData(data, 8);
+
+    QCA::SecureArray encrypted = cipher.process(paddedData);
+    if (!cipher.ok() || encrypted.isEmpty()) {
+        qDebug() << "3DES Encrypt: Encryption failed. Cipher ok:" << cipher.ok()
+        << "Encrypted data length:" << encrypted.size();
+        return "Ошибка: Не удалось зашифровать";
+    }
+
+    qDebug() << "3DES Encrypt: Encryption successful. Encrypted data length:" << encrypted.size()
+             << "Data (hex):" << encrypted.toByteArray().toHex();
+    return QString(encrypted.toByteArray().toBase64());
 }
 
 QString MainWindow::cast5Encrypt(const QString& text, const QString& key, const QString& alphabet) {
@@ -463,24 +539,6 @@ QString MainWindow::cast5Encrypt(const QString& text, const QString& key, const 
     if (!cipher.ok()) return "Ошибка: Не удалось зашифровать";
 
     return QString((iv + encrypted).toByteArray().toBase64());
-}
-
-// Реализации функций расшифровки
-QString MainWindow::rsaDecrypt(const QString& text, const QString& key) {
-    if (text.isEmpty()) return "Ошибка: Пустой текст";
-    if (key.isEmpty()) return "Ошибка: Пустой ключ";
-
-    QCA::PrivateKey privKey;
-    privKey.fromPEM(key);
-    if (!privKey.canDecrypt()) return "Ошибка: Неверный приватный ключ";
-
-    QByteArray encrypted = QByteArray::fromBase64(text.toUtf8());
-    QCA::SecureArray data(encrypted);
-    QCA::SecureArray out;
-    bool success = privKey.decrypt(data, &out, QCA::EME_PKCS1v15);
-    if (!success || out.isEmpty()) return "Ошибка: Не удалось расшифровать";
-
-    return QString::fromUtf8(out.data());
 }
 
 QString MainWindow::aes256Decrypt(const QString& text, const QString& key) {
@@ -520,21 +578,57 @@ QString MainWindow::blowfishDecrypt(const QString& text, const QString& key) {
 }
 
 QString MainWindow::tripleDesDecrypt(const QString& text, const QString& key) {
-    if (text.isEmpty()) return "Ошибка: Пустой текст";
-    if (key.isEmpty()) return "Ошибка: Пустой ключ";
+    if (text.isEmpty()) {
+        qDebug() << "3DES Decrypt: Empty input text";
+        return "Ошибка: Пустой текст";
+    }
+    if (key.isEmpty()) {
+        qDebug() << "3DES Decrypt: Empty key";
+        return "Ошибка: Пустой ключ";
+    }
 
     QByteArray encrypted = QByteArray::fromBase64(text.toUtf8());
-    if (encrypted.size() < 8) return "Ошибка: Неверный формат данных";
+    if (encrypted.isEmpty()) {
+        qDebug() << "3DES Decrypt: Invalid Base64 data";
+        return "Ошибка: Неверный формат данных";
+    }
+    qDebug() << "3DES Decrypt: Encrypted data length:" << encrypted.size()
+             << "Data (hex):" << encrypted.toHex();
 
-    QCA::InitializationVector iv(encrypted.left(8));
-    QCA::SecureArray data(encrypted.mid(8));
-    QCA::SymmetricKey symKey(key.toUtf8());
-    QCA::Cipher cipher("tripledes", QCA::Cipher::CBC, QCA::Cipher::DefaultPadding, QCA::Decode, symKey, iv);
+    QByteArray keyBytes = key.toUtf8();
+    qDebug() << "3DES Decrypt: Original key length (chars):" << key.length()
+             << "Key length (bytes after toUtf8):" << keyBytes.length();
 
+    if (keyBytes.length() < 24) {
+        keyBytes = keyBytes.leftJustified(24, '\0');
+        qDebug() << "3DES Decrypt: Key padded to 24 bytes";
+    } else if (keyBytes.length() > 24) {
+        keyBytes = keyBytes.left(24);
+        qDebug() << "3DES Decrypt: Key truncated to 24 bytes";
+    }
+
+    QCA::SymmetricKey symKey(keyBytes);
+    qDebug() << "3DES Decrypt: Symmetric key created, length:" << symKey.size();
+
+    QCA::Cipher cipher("tripledes", QCA::Cipher::ECB, QCA::Cipher::NoPadding, QCA::Decode, symKey);
+    qDebug() << "3DES Decrypt: Cipher initialized with ECB mode and NoPadding";
+
+    QCA::SecureArray data(encrypted);
     QCA::SecureArray decrypted = cipher.process(data);
-    if (!cipher.ok()) return "Ошибка: Не удалось расшифровать";
+    if (!cipher.ok() || decrypted.isEmpty()) {
+        qDebug() << "3DES Decrypt: Decryption failed. Cipher ok:" << cipher.ok()
+        << "Decrypted data length:" << decrypted.size();
+        return "Ошибка: Не удалось расшифровать";
+    }
 
-    return QString::fromUtf8(decrypted.data());
+    // Удаляем дополнение
+    QCA::SecureArray unpaddedData = unpadData(decrypted);
+    qDebug() << "3DES Decrypt: Decryption successful. Decrypted data length:" << unpaddedData.size()
+             << "Data (hex):" << unpaddedData.toByteArray().toHex();
+
+    QString result = QString::fromUtf8(unpaddedData.data(), unpaddedData.size());
+    qDebug() << "3DES Decrypt: Decoded result:" << result;
+    return result;
 }
 
 QString MainWindow::cast5Decrypt(const QString& text, const QString& key) {
@@ -553,4 +647,36 @@ QString MainWindow::cast5Decrypt(const QString& text, const QString& key) {
     if (!cipher.ok()) return "Ошибка: Не удалось расшифровать";
 
     return QString::fromUtf8(decrypted.data());
+}
+
+// Вспомогательные функции для ручного дополнения и удаления дополнения
+QCA::SecureArray MainWindow::padData(const QCA::SecureArray& data, int blockSize) {
+    int paddingSize = blockSize - (data.size() % blockSize);
+    QCA::SecureArray paddedData(data);
+    paddedData.resize(data.size() + paddingSize);
+    for (int i = 0; i < paddingSize; ++i) {
+        paddedData[data.size() + i] = static_cast<char>(paddingSize);
+    }
+    qDebug() << "Padded data length:" << paddedData.size() << "Data (hex):" << paddedData.toByteArray().toHex();
+    return paddedData;
+}
+
+QCA::SecureArray MainWindow::unpadData(const QCA::SecureArray& data) {
+    if (data.isEmpty()) return data;
+    int paddingSize = static_cast<unsigned char>(data[data.size() - 1]);
+    if (paddingSize > data.size() || paddingSize == 0) {
+        qDebug() << "Invalid padding size:" << paddingSize;
+        return data; // Некорректное дополнение, возвращаем как есть
+    }
+    // Проверяем, что все байты дополнения корректны
+    for (int i = 0; i < paddingSize; ++i) {
+        if (static_cast<unsigned char>(data[data.size() - 1 - i]) != paddingSize) {
+            qDebug() << "Invalid padding bytes at position" << (data.size() - 1 - i);
+            return data;
+        }
+    }
+    QCA::SecureArray unpaddedData(data);
+    unpaddedData.resize(data.size() - paddingSize);
+    qDebug() << "Unpadded data length:" << unpaddedData.size() << "Data (hex):" << unpaddedData.toByteArray().toHex();
+    return unpaddedData;
 }
