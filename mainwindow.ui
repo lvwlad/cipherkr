@@ -179,17 +179,34 @@
         <item>
          <widget class="QLabel" name="kuznechikKeyLabel">
           <property name="text">
-           <string>Введите ключ (текст):</string>
+           <string>Ключ (32 байта в hex):</string>
           </property>
           <property name="toolTip">
-           <string>Укажите текстовый ключ для шифра Kuznechik.</string>
+           <string>Введите 32 байта в шестнадцатеричном формате (например, 8899aabbccddeeff00112233445566778899aabbccddeeff0011223344556677).</string>
           </property>
          </widget>
         </item>
         <item>
          <widget class="QLineEdit" name="kuznechikKeyInput">
           <property name="placeholderText">
-           <string>Например, secret</string>
+           <string>Например, 8899aabbccddeeff00112233445566778899aabbccddeeff0011223344556677</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QLabel" name="kuznechikVectorLabel">
+          <property name="text">
+           <string>Вектор (8 байт в hex):</string>
+          </property>
+          <property name="toolTip">
+           <string>Введите 8 байт в шестнадцатеричном формате (например, 1234567890abcdef).</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QLineEdit" name="kuznechikVectorInput">
+          <property name="placeholderText">
+           <string>Например, 1234567890abcdef</string>
           </property>
          </widget>
         </item>

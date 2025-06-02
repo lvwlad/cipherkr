@@ -31,6 +31,8 @@ set(PROJECT_SOURCES
         exporter.cpp
         exportformatdialog.h
         exportformatdialog.cpp
+        kuz_calc.h
+        kuz_calc.cpp
 )
 
 # Создание исполняемого файла
