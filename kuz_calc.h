@@ -36,6 +36,7 @@ public:
      * \param size - размер данных
      */
     void CTR_Crypt(uint8_t *init_vec, uint8_t *in_buf, uint8_t *out_buf, uint8_t *key, uint64_t size);
+    //void GOST_Kuz_Decrypt(const uint8_t *blk, uint8_t *out_blk);
 
 private:
     /*!

@@ -1,6 +1,6 @@
 #include <QString>
 #include <QByteArray>
-#include <QtCrypto/QtCrypto>
+#include <QtCrypto>
 #include <QDebug>
 
 // Инициализация QCA

@@ -1,67 +1,95 @@
 #include "mainwindow.h"
-#include "ui_MainWindow.h"
+#include "./ui_MainWindow.h"
 #include "exporter.h"
 #include "exportformatdialog.h"
 #include <QFileDialog>
 #include <QMessageBox>
 #include <QInputDialog>
-#include <QtCrypto/QtCrypto>
+#include <QtCrypto>
+#include <QRandomGenerator>
 #include "kuz_calc.h"
 #include <functional>
-#include <QDebug>
+#include <QFormLayout>
 
-MainWindow::MainWindow(QWidget* parent)
-    : QMainWindow(parent), ui(new Ui::MainWindow) {
+
+MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWindow) {
     ui->setupUi(this);
+    
+    // Принудительное обновление стилей
+    this->style()->unpolish(this);
+    this->style()->polish(this);
 
-    // Имена шифров
-    cipherNames = {"Caesar", "Atbash", "Beaufort", "Kuznechik", "RSA", "AES-256", "Blowfish", "3DES", "CAST5"};
+    // Инициализация списка имен шифров
+    cipherNames = {
+        "Caesar",
+        "Atbash",
+        "Beaufort",
+        "Kuznechik",
+        "RSA",
+        "AES-256",
+        "Blowfish",
+        "3DES",
+        "CAST5"
+    };
 
-    // Инициализация функций шифрования с помощью лямбда-выражений
-    cipherFuncs.push_back(std::function<QString(MainWindow*, const QString&, const QString&, const QString&)>(
-        [this](MainWindow* obj, const QString& text, const QString& key, const QString& alphabet) {
-            return this->caesarEncrypt(text, key, alphabet);
-        }));
-    cipherFuncs.push_back(std::function<QString(MainWindow*, const QString&, const QString&, const QString&)>(
-        [this](MainWindow* obj, const QString& text, const QString& key, const QString& alphabet) {
-            return this->atbashEncrypt(text, key, alphabet);
-        }));
-    cipherFuncs.push_back(std::function<QString(MainWindow*, const QString&, const QString&, const QString&)>(
-        [this](MainWindow* obj, const QString& text, const QString& key, const QString& alphabet) {
-            return this->beaufortEncrypt(text, key, alphabet);
-        }));
-    cipherFuncs.push_back(std::function<QString(MainWindow*, const QString&, const QString&, const QString&)>(
-        [this](MainWindow* obj, const QString& text, const QString& key, const QString& alphabet) {
-            return this->kuznechikEncrypt(text, key, alphabet);
-        }));
-    cipherFuncs.push_back(std::function<QString(MainWindow*, const QString&, const QString&, const QString&)>(
-        [this](MainWindow* obj, const QString& text, const QString& key, const QString& alphabet) {
-            return this->rsaEncrypt(text, key, alphabet);
-        }));
-    cipherFuncs.push_back(std::function<QString(MainWindow*, const QString&, const QString&, const QString&)>(
-        [this](MainWindow* obj, const QString& text, const QString& key, const QString& alphabet) {
-            return this->aes256Encrypt(text, key, alphabet);
-        }));
-    cipherFuncs.push_back(std::function<QString(MainWindow*, const QString&, const QString&, const QString&)>(
-        [this](MainWindow* obj, const QString& text, const QString& key, const QString& alphabet) {
-            return this->blowfishEncrypt(text, key, alphabet);
-        }));
-    cipherFuncs.push_back(std::function<QString(MainWindow*, const QString&, const QString&, const QString&)>(
-        [this](MainWindow* obj, const QString& text, const QString& key, const QString& alphabet) {
-            return this->tripleDesEncrypt(text, key, alphabet);
-        }));
-    cipherFuncs.push_back(std::function<QString(MainWindow*, const QString&, const QString&, const QString&)>(
-        [this](MainWindow* obj, const QString& text, const QString& key, const QString& alphabet) {
-            return this->cast5Encrypt(text, key, alphabet);
-        }));
+    // Заполнение селектора шифров
+    for (const QString& name : cipherNames) {
+        ui->cipherSelector->addItem(name);
+    }
+
+    // Заполнение селектора алфавитов
+    ui->alphabetSelector->addItem("English (A-Z)");
+    ui->alphabetSelector->addItem("Russian (А-Я)");
+    ui->alphabetSelector->addItem("Custom");
+
+
+    // Валидаторы для Kuznechik
+    QRegularExpression hexRegex("^[0-9a-fA-F]*$");
+    QValidator* hexValidator = new QRegularExpressionValidator(hexRegex, this);
+    ui->kuznechikKeyInput->setValidator(hexValidator);
+    ui->kuznechikVectorInput->setValidator(hexValidator);
+
+    // Контекстное меню для RSA-ключей
+    connect(ui->publicKeyInput, &QPlainTextEdit::textChanged, this, [&]() {
+        ui->publicKeyInput->setToolTip("Нажмите правой кнопкой мыши для копирования");
+    });
+    connect(ui->privateKeyInput, &QPlainTextEdit::textChanged, this, [&]() {
+        ui->privateKeyInput->setToolTip("Нажмите правой кнопкой мыши для копирования");
+    });
+
+
+    // Инициализация функций шифрования (мой подход)
+    cipherFuncs = {
+        &MainWindow::caesarEncrypt,
+        &MainWindow::atbashEncrypt,
+        &MainWindow::beaufortEncrypt,
+        &MainWindow::kuznechikEncrypt,
+        &MainWindow::rsaEncrypt,
+        &MainWindow::aes256Encrypt,
+        &MainWindow::blowfishEncrypt,
+        &MainWindow::tripleDesEncrypt,
+        &MainWindow::cast5Encrypt
+    };
 
     // Соединения
-    connect(ui->alphabetSelector, &QComboBox::currentIndexChanged, this, &MainWindow::onAlphabetChanged);
-    connect(ui->cipherSelector, &QComboBox::currentIndexChanged, this, &MainWindow::onCipherChanged);
-    connect(ui->encryptButton, &QPushButton::clicked, this, &MainWindow::encryptText);
+    connect(ui->alphabetSelector, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &MainWindow::onAlphabetChanged);
+    connect(ui->cipherSelector, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this](int index) {
+        onCipherChanged(index);
+    });
     connect(ui->decryptButton, &QPushButton::clicked, this, &MainWindow::decryptText);
+    connect(ui->encryptButton, &QPushButton::clicked, this, &MainWindow::encryptText);
     connect(ui->exportButton, &QPushButton::clicked, this, &MainWindow::exportResult);
     connect(ui->generateKeysButton, &QPushButton::clicked, this, &MainWindow::generateRsaKeys);
+
+    // Подключение сигналов кнопок генерации ключей
+    connect(ui->caesarGenerateButton, &QPushButton::clicked, this, &MainWindow::generateCaesarKey);
+    connect(ui->beaufortGenerateButton, &QPushButton::clicked, this, &MainWindow::generateBeaufortKey);
+    connect(ui->kuznechikGenerateButton, &QPushButton::clicked, this, &MainWindow::generateKuznechikKey);
+    connect(ui->kuznechikVectorGenerateButton, &QPushButton::clicked, this, &MainWindow::generateKuznechikVector);
+    connect(ui->aes256GenerateButton, &QPushButton::clicked, this, &MainWindow::generateAes256Key);
+    connect(ui->blowfishGenerateButton, &QPushButton::clicked, this, &MainWindow::generateBlowfishKey);
+    connect(ui->tripleDesGenerateButton, &QPushButton::clicked, this, &MainWindow::generateTripleDesKey);
+    connect(ui->cast5GenerateButton, &QPushButton::clicked, this, &MainWindow::generateCast5Key);
 
     // Инициализация QCA
     static QCA::Initializer init;
@@ -76,6 +104,7 @@ MainWindow::MainWindow(QWidget* parent)
         qDebug() << "RSA support is available";
     }
 
+    // Инициализация начального состояния
     onAlphabetChanged(0);
     onCipherChanged(0);
 }
@@ -86,7 +115,32 @@ MainWindow::~MainWindow() {
 
 void MainWindow::onCipherChanged(int index) {
     ui->cipherInputStack->setCurrentIndex(index);
-    ui->decryptButton->setEnabled(index == 4 || index == 5 || index == 6 || index == 7 || index == 8 || index == 3);
+    
+    // Определяем, требует ли шифр алфавит
+    bool needsAlphabet = (index <= 2); // Caesar, Atbash, Beaufort требуют алфавит
+    ui->alphabetSelector->setEnabled(needsAlphabet);
+    if (!needsAlphabet) {
+        ui->alphabetDisplay->setText("Данный шифр поддерживает кодирование любых символов");
+    } else {
+        updateAlphabetDisplay();
+    }
+
+    // Показываем rsaInputWidget только для RSA (индекс 4)
+    QWidget* rsaWidget = ui->cipherInputStack->widget(4);
+    if (index == 4) {
+        rsaWidget->setVisible(true);
+    } else {
+        rsaWidget->setVisible(false);
+    }
+
+    // Настраиваем кнопки в зависимости от шифра
+    if (index == 3) { // Kuznechik
+        ui->encryptButton->setText("Шифровать/Дешифровать");
+        ui->decryptButton->setVisible(false);
+    } else {
+        ui->encryptButton->setText("Зашифровать");
+        ui->decryptButton->setVisible(true);
+    }
 }
 
 void MainWindow::onAlphabetChanged(int index) {
@@ -179,170 +233,281 @@ void MainWindow::encryptText() {
         return;
     }
 
-    // Получить ключ и вектор в зависимости от шифра
-    if (idx == 0) { // Caesar
-        key = ui->caesarKeyInput->text();
-    } else if (idx == 2) { // Beaufort
-        key = ui->beaufortKeyInput->text();
-    } else if (idx == 3) { // Kuznechik
-        key = ui->kuznechikKeyInput->text();
-        vector = ui->kuznechikVectorInput->text();
-    } else if (idx == 4) { // RSA
-        if (rsaPublicKey.isEmpty()) {
-            generateRsaKeys();
-        }
-        key = rsaPublicKey;
-    } else if (idx == 5) { // AES-256
-        key = ui->aes256KeyInput->text();
-    } else if (idx == 6) { // Blowfish
-        key = ui->blowfishKeyInput->text();
-    } else if (idx == 7) { // 3DES
-        key = ui->tripleDesKeyInput->text();
-    } else if (idx == 8) { // CAST5
-        key = ui->cast5KeyInput->text();
-    } // Atbash (idx == 1) не требует ключа
 
-    result = cipherFuncs[idx](this, text, key, currentAlphabet);
-    if (result.startsWith("Ошибка:")) {
-        QMessageBox::warning(this, "Ошибка", result);
-        return;
+    try {
+        // Получить ключ и вектор в зависимости от шифра
+        if (idx == 0) { // Caesar
+            key = ui->caesarKeyInput->text();
+            if (key.isEmpty()) {
+                throw QString("Введите ключ для шифра Цезаря");
+            }
+        } else if (idx == 2) { // Beaufort
+            key = ui->beaufortKeyInput->text();
+            if (key.isEmpty()) {
+                throw QString("Введите ключ для шифра Бофора");
+            }
+        } else if (idx == 3) { // Kuznechik
+            key = ui->kuznechikKeyInput->text();
+            vector = ui->kuznechikVectorInput->text();
+            if (key.isEmpty() || vector.isEmpty()) {
+                throw QString("Введите ключ и вектор для шифра Кузнечик");
+            }
+            // Для Кузнечика используем одну и ту же функцию для шифрования и дешифрования
+            result = crypt(text);
+            if (result.startsWith("Ошибка:")) {
+                throw result;
+            }
+            ui->outputText->setPlainText(result);
+            return; // Выходим, так как обработка уже завершена
+        } else if (idx == 4) { // RSA
+            if (rsaPublicKey.isEmpty() || rsaPrivateKey.isEmpty()) {
+                generateRsaKeys();
+            }
+            key = rsaPublicKey;
+            if (key.isEmpty()) {
+                throw QString("Сгенерируйте ключи RSA");
+            }
+        } else if (idx >= 5) { // Современные шифры
+            QLineEdit* keyInput = nullptr;
+            QString cipherName;
+
+            switch(idx) {
+                case 5: // AES-256
+                    keyInput = ui->aes256KeyInput;
+                    cipherName = "AES-256";
+                    break;
+                case 6: // Blowfish
+                    keyInput = ui->blowfishKeyInput;
+                    cipherName = "Blowfish";
+                    break;
+                case 7: // 3DES
+                    keyInput = ui->tripleDesKeyInput;
+                    cipherName = "3DES";
+                    break;
+                case 8: // CAST5
+                    keyInput = ui->cast5KeyInput;
+                    cipherName = "CAST5";
+                    break;
+            }
+
+            if (keyInput) {
+                key = keyInput->text();
+                if (key.isEmpty()) {
+                    throw QString("Введите ключ для шифра " + cipherName);
+                }
+            }
+
+        }
+
+        result = std::invoke(cipherFuncs[idx], this, text, key, currentAlphabet);
+
+        if (result.startsWith("Ошибка:")) {
+            throw result;
+        }
+
+        ui->outputText->setPlainText(result);
+    } catch (const QString& error) {
+        QMessageBox::warning(this, "Ошибка", error);
+    } catch (...) {
+        QMessageBox::warning(this, "Ошибка", "Произошла неизвестная ошибка при шифровании");
     }
-    ui->outputText->setPlainText(result);
 }
 
 void MainWindow::decryptText() {
     int idx = ui->cipherSelector->currentIndex();
-    QString base64Text = ui->inputText->toPlainText();
+    QString text = ui->inputText->toPlainText();
     QString key;
-    QString vector;
     QString result;
 
-    if (base64Text.isEmpty()) {
+    if (text.isEmpty()) {
         QMessageBox::warning(this, "Ошибка", "Введите текст для расшифровки.");
         return;
     }
 
-    if (idx == 3) { // Kuznechik
-        key = ui->kuznechikKeyInput->text();
-        vector = ui->kuznechikVectorInput->text();
-        result = crypt(base64Text); // Кузнечик симметричен, повторное шифрование = расшифровка
-    } else if (idx == 4) { // RSA
-        if (rsaPrivateKey.isEmpty()) {
-            QMessageBox::warning(this, "Ошибка", "Приватный ключ отсутствует. Пожалуйста, сгенерируйте ключи.");
-            generateRsaKeys();
-            return;
-        }
-        key = rsaPrivateKey; // Use the stored rsaPrivateKey
-        result = rsaDecrypt(base64Text, key);
-    } else if (idx == 5) { // AES-256
-        key = ui->aes256KeyInput->text();
-        result = aes256Decrypt(base64Text, key);
-    } else if (idx == 6) { // Blowfish
-        key = ui->blowfishKeyInput->text();
-        result = blowfishDecrypt(base64Text, key);
-    } else if (idx == 7) { // 3DES
-        key = ui->tripleDesKeyInput->text();
-        result = tripleDesDecrypt(base64Text, key);
-    } else if (idx == 8) { // CAST5
-        key = ui->cast5KeyInput->text();
-        result = cast5Decrypt(base64Text, key);
-    } else {
-        QMessageBox::warning(this, "Ошибка", "Расшифровка доступна только для Kuznechik, RSA, AES-256, Blowfish, 3DES и CAST5.");
-        return;
-    }
 
-    if (result.startsWith("Ошибка:")) {
-        QMessageBox::warning(this, "Ошибка", result);
-        return;
+    try {
+        // Получаем ключ в зависимости от шифра
+        if (idx == 0) { // Caesar
+            key = ui->caesarKeyInput->text();
+            if (key.isEmpty()) {
+                throw QString("Введите ключ для расшифровки шифра Цезаря");
+            }
+            // Для расшифровки Caesar используем отрицательный сдвиг
+            bool ok;
+            int shift = key.toInt(&ok);
+            if (!ok) {
+                throw QString("Ключ шифра Цезаря должен быть числом");
+            }
+            key = QString::number(-shift);
+            result = caesarEncrypt(text, key, currentAlphabet);
+        }
+        else if (idx == 1) { // Atbash
+            // Atbash - самообратимый шифр
+            result = atbashEncrypt(text, "", currentAlphabet);
+        }
+        else if (idx == 2) { // Beaufort
+            // Beaufort - самообратимый шифр
+            key = ui->beaufortKeyInput->text();
+            if (key.isEmpty()) {
+                throw QString("Введите ключ для расшифровки шифра Бофора");
+            }
+            result = beaufortEncrypt(text, key, currentAlphabet);
+        }
+        else if (idx == 3) { // Kuznechik
+            // Для Кузнечика используем ту же функцию crypt
+            key = ui->kuznechikKeyInput->text();
+            QString vector = ui->kuznechikVectorInput->text();
+            if (key.isEmpty() || vector.isEmpty()) {
+                throw QString("Введите ключ и вектор для расшифровки шифра Кузнечик");
+            }
+            result = crypt(text);
+        }
+        else if (idx == 4) { // RSA
+            key = ui->privateKeyInput->toPlainText();
+            if (key.isEmpty()) {
+                throw QString("Необходим приватный ключ для расшифровки RSA");
+            }
+            result = rsaDecrypt(text, key);
+        }
+        else if (idx >= 5) { // Современные шифры
+            QLineEdit* keyInput = nullptr;
+            QString cipherName;
+            std::function<QString(const QString&, const QString&)> decryptFunc;
+
+            switch(idx) {
+                case 5: // AES-256
+                    keyInput = ui->aes256KeyInput;
+                    cipherName = "AES-256";
+                    decryptFunc = std::bind(&MainWindow::aes256Decrypt, this, std::placeholders::_1, std::placeholders::_2);
+                    break;
+                case 6: // Blowfish
+                    keyInput = ui->blowfishKeyInput;
+                    cipherName = "Blowfish";
+                    decryptFunc = std::bind(&MainWindow::blowfishDecrypt, this, std::placeholders::_1, std::placeholders::_2);
+                    break;
+                case 7: // 3DES
+                    keyInput = ui->tripleDesKeyInput;
+                    cipherName = "3DES";
+                    decryptFunc = std::bind(&MainWindow::tripleDesDecrypt, this, std::placeholders::_1, std::placeholders::_2);
+                    break;
+                case 8: // CAST5
+                    keyInput = ui->cast5KeyInput;
+                    cipherName = "CAST5";
+                    decryptFunc = std::bind(&MainWindow::cast5Decrypt, this, std::placeholders::_1, std::placeholders::_2);
+                    break;
+            }
+
+            if (keyInput) {
+                key = keyInput->text();
+                if (key.isEmpty()) {
+                    throw QString("Введите ключ для расшифровки " + cipherName);
+                }
+                result = decryptFunc(text, key);
+            }
+        }
+
+
+        if (result.startsWith("Ошибка:")) {
+            throw result;
+        }
+
+        ui->outputText->setPlainText(result);
+    } catch (const QString& error) {
+        QMessageBox::warning(this, "Ошибка", error);
+    } catch (...) {
+        QMessageBox::warning(this, "Ошибка", "Произошла неизвестная ошибка при расшифровке");
     }
-    ui->outputText->setPlainText(result);
 }
 
 void MainWindow::exportResult() {
-    ExportFormatDialog dialog(this);
-    if (dialog.exec() != QDialog::Accepted) {
+
+    QString content = ui->outputText->toPlainText();
+    if (content.isEmpty()) {
+        QMessageBox::warning(this, "Ошибка", "Нет данных для экспорта.");
+
         return;
     }
 
-    QString format = dialog.getSelectedFormat();
+    // Создаем и показываем диалог выбора формата
+    ExportFormatDialog formatDialog(this);
+    if (formatDialog.exec() != QDialog::Accepted) {
+        return;
+    }
+
+
+    // Получаем выбранный формат
+    QString format = formatDialog.getSelectedFormat();
+    
+    // Проверяем, что формат был выбран
     if (format.isEmpty()) {
-        QMessageBox::warning(this, "Ошибка", "Формат не выбран.");
+        QMessageBox::warning(this, "Ошибка", "Формат экспорта не выбран.");
         return;
     }
+    
+    // Открываем диалог сохранения файла с соответствующим расширением
+    QString fileFilter;
 
-    QString filter;
-    QString defaultExtension;
     if (format == "txt") {
-        filter = "Text Files (*.txt)";
-        defaultExtension = ".txt";
+        fileFilter = "Text Files (*.txt)";
     } else if (format == "html") {
-        filter = "HTML Files (*.html)";
-        defaultExtension = ".html";
+        fileFilter = "HTML Files (*.html)";
     } else if (format == "json") {
-        filter = "JSON Files (*.json)";
-        defaultExtension = ".json";
+        fileFilter = "JSON Files (*.json)";
     } else {
-        QMessageBox::warning(this, "Ошибка", "Неподдерживаемый формат.");
+        QMessageBox::warning(this, "Ошибка", "Неподдерживаемый формат экспорта: " + format);
         return;
     }
 
-    QString filename = QFileDialog::getSaveFileName(
-        this,
+
+    QString fileName = QFileDialog::getSaveFileName(this,
         "Сохранить результат",
         QString(),
-        filter
-        );
-    if (filename.isEmpty()) {
+        fileFilter);
+
+    if (fileName.isEmpty()) {
         return;
     }
 
-    if (!filename.endsWith(defaultExtension)) {
-        filename += defaultExtension;
+
+    // Добавляем расширение, если его нет
+    if (!fileName.endsWith("." + format)) {
+        fileName += "." + format;
     }
 
-    bool ok;
-    int idx = ui->cipherSelector->currentIndex();
-    QString cipherName = cipherNames[idx];
-    if (idx == 4) { // RSA
-        ok = Exporter::exportToFile(
-            filename,
-            ui->inputText->toPlainText(),
-            ui->outputText->toPlainText(),
-            cipherName,
-            rsaPublicKey,
-            rsaPrivateKey,
-            format
-            );
-    } else {
-        ok = Exporter::exportToFile(
-            filename,
-            ui->inputText->toPlainText(),
-            ui->outputText->toPlainText(),
-            cipherName,
-            QString(),
-            QString(),
-            format
-            );
-    }
-    if (!ok) {
-        QMessageBox::warning(this, "Ошибка", "Не удалось сохранить файл.");
-    } else {
-        QMessageBox::information(this, "Готово", "Файл сохранён.");
+    // Создаем экспортер и экспортируем данные
+    Exporter exporter;
+    QString inputText = ui->inputText->toPlainText();
+    QString outputText = ui->outputText->toPlainText();
+    int cipherIndex = ui->cipherSelector->currentIndex();
+    QString cipherName = cipherNames[cipherIndex];
+
+    try {
+        if (!exporter.exportData(fileName, format, inputText, outputText, cipherName)) {
+            throw QString("Не удалось экспортировать данные в файл.");
+        }
+        QMessageBox::information(this, "Успех", "Данные успешно экспортированы в файл:\n" + fileName);
+    } catch (const QString& error) {
+        QMessageBox::critical(this, "Ошибка", error);
+    } catch (...) {
+        QMessageBox::critical(this, "Ошибка", "Произошла неизвестная ошибка при экспорте данных.");
     }
 }
 
 QString MainWindow::caesarEncrypt(const QString& text, const QString& key, const QString& alphabet) {
-    if (text.isEmpty() || alphabet.isEmpty()) return "Ошибка: Пустой текст или алфавит";
+
     bool ok;
     int shift = key.toInt(&ok);
-    if (!ok || shift < 0) return "Ошибка: Неверный ключ (ожидается целое число)";
+    if (!ok) {
+        return "Ошибка: Ключ должен быть числом";
+    }
 
     QString result;
-    for (const QChar& c : text) {
-        int pos = alphabet.indexOf(c.toUpper());
-        if (pos != -1) {
-            int newPos = (pos + shift) % alphabet.length();
-            result += alphabet[newPos];
+    for (QChar c : text) {
+        int idx = alphabet.indexOf(c.toUpper());
+        if (idx != -1) {
+            int newIdx = (idx + shift) % alphabet.length();
+            if (newIdx < 0) newIdx += alphabet.length();
+            result += c.isUpper() ? alphabet[newIdx] : alphabet[newIdx].toLower();
         } else {
             result += c;
         }
@@ -352,14 +517,13 @@ QString MainWindow::caesarEncrypt(const QString& text, const QString& key, const
 
 QString MainWindow::atbashEncrypt(const QString& text, const QString& key, const QString& alphabet) {
     Q_UNUSED(key);
-    if (text.isEmpty() || alphabet.isEmpty()) return "Ошибка: Пустой текст или алфавит";
 
     QString result;
-    for (const QChar& c : text) {
-        int pos = alphabet.indexOf(c.toUpper());
-        if (pos != -1) {
-            int newPos = alphabet.length() - 1 - pos;
-            result += alphabet[newPos];
+    for (QChar c : text) {
+        int idx = alphabet.indexOf(c.toUpper());
+        if (idx != -1) {
+            int newIdx = alphabet.length() - 1 - idx;
+            result += c.isUpper() ? alphabet[newIdx] : alphabet[newIdx].toLower();
         } else {
             result += c;
         }
@@ -368,23 +532,27 @@ QString MainWindow::atbashEncrypt(const QString& text, const QString& key, const
 }
 
 QString MainWindow::beaufortEncrypt(const QString& text, const QString& key, const QString& alphabet) {
-    if (text.isEmpty() || key.isEmpty() || alphabet.isEmpty()) return "Ошибка: Пустой текст, ключ или алфавит";
+
+    if (key.isEmpty()) {
+        return "Ошибка: Ключ не может быть пустым";
+    }
 
     QString result;
-    QString expandedKey = key;
-    while (expandedKey.length() < text.length()) {
-        expandedKey += key;
-    }
-    expandedKey = expandedKey.left(text.length());
+    int keyIdx = 0;
 
-    for (int i = 0; i < text.length(); ++i) {
-        int textPos = alphabet.indexOf(text[i].toUpper());
-        int keyPos = alphabet.indexOf(expandedKey[i].toUpper());
-        if (textPos != -1 && keyPos != -1) {
-            int newPos = (keyPos - textPos + alphabet.length()) % alphabet.length();
-            result += alphabet[newPos];
+    for (QChar c : text) {
+        int textIdx = alphabet.indexOf(c.toUpper());
+        if (textIdx != -1) {
+            int keyCharIdx = alphabet.indexOf(key[keyIdx % key.length()].toUpper());
+            if (keyCharIdx == -1) {
+                return "Ошибка: Ключ содержит символы не из алфавита";
+            }
+
+            int newIdx = (keyCharIdx - textIdx + alphabet.length()) % alphabet.length();
+            result += c.isUpper() ? alphabet[newIdx] : alphabet[newIdx].toLower();
+            keyIdx++;
         } else {
-            result += text[i];
+            result += c;
         }
     }
     return result;
@@ -398,285 +566,323 @@ QString MainWindow::kuznechikEncrypt(const QString& text, const QString& key, co
 
 QString MainWindow::rsaEncrypt(const QString& text, const QString& key, const QString& alphabet) {
     Q_UNUSED(alphabet);
-    if (text.isEmpty()) return "Ошибка: Пустой текст";
-    if (key.isEmpty()) return "Ошибка: Пустой ключ";
+    if (key.isEmpty()) {
+        return "Ошибка: Отсутствует публичный ключ";
+    }
 
-    QCA::PublicKey pubKey = QCA::PublicKey::fromPEM(key.toUtf8());
+    QCA::PublicKey pubKey = QCA::PublicKey::fromPEM(key);
     if (pubKey.isNull()) {
-        qDebug() << "Public key loading failed. Key data:" << key.left(50) << "...";
-        return "Ошибка: Неверный публичный ключ";
+        return "Ошибка: Неверный формат публичного ключа";
     }
 
-    QCA::SecureArray encrypted = pubKey.encrypt(text.toUtf8(), QCA::EME_PKCS1_OAEP);
-    if (encrypted.isEmpty()) {
-        qDebug() << "Encryption failed.";
-        return "Ошибка: Не удалось зашифровать";
+    QCA::SecureArray plainText(text.toUtf8());
+    QCA::SecureArray cipherText = pubKey.encrypt(plainText, QCA::EME_PKCS1_OAEP);
+    if (cipherText.isEmpty()) {
+        return "Ошибка: Не удалось зашифровать текст";
     }
 
-    return QString(encrypted.toByteArray().toBase64());
-}
-
-QString MainWindow::rsaDecrypt(const QString& text, const QString& key) {
-    if (text.isEmpty()) return "Ошибка: Пустой текст";
-    if (key.isEmpty()) return "Ошибка: Пустой ключ";
-
-    QCA::PrivateKey privKey = QCA::PrivateKey::fromPEM(key.toUtf8());
-    if (privKey.isNull()) {
-        qDebug() << "Private key loading failed. Key data:" << key.left(50) << "...";
-        return "Ошибка: Неверный приватный ключ";
-    }
-
-    QByteArray encrypted = QByteArray::fromBase64(text.toUtf8());
-    if (encrypted.isEmpty()) {
-        qDebug() << "Invalid base64 data.";
-        return "Ошибка: Неверный формат зашифрованного текста";
-    }
-
-    QCA::SecureArray decrypted;
-    bool success = privKey.decrypt(encrypted, &decrypted, QCA::EME_PKCS1_OAEP);
-    if (!success || decrypted.isEmpty()) {
-        qDebug() << "Decryption failed. Success:" << success << ", Decrypted size:" << decrypted.size();
-        return "Ошибка: Не удалось расшифровать";
-    }
-
-    return QString::fromUtf8(decrypted.data(), decrypted.size());
+    return QString::fromLatin1(cipherText.toByteArray().toBase64());
 }
 
 QString MainWindow::aes256Encrypt(const QString& text, const QString& key, const QString& alphabet) {
     Q_UNUSED(alphabet);
-    if (text.isEmpty()) return "Ошибка: Пустой текст";
-    if (key.isEmpty()) return "Ошибка: Пустой ключ";
+    if (key.isEmpty()) {
+        return "Ошибка: Ключ не может быть пустым";
+    }
 
-    QCA::SymmetricKey symKey(key.toUtf8());
+    QCA::Hash hash("sha256");
+    hash.update(key.toUtf8());
+    QCA::SymmetricKey symKey(hash.final());
     QCA::InitializationVector iv(16);
-    QCA::Cipher cipher("aes256", QCA::Cipher::CBC, QCA::Cipher::DefaultPadding, QCA::Encode, symKey, iv);
 
-    QCA::SecureArray data = text.toUtf8();
-    QCA::SecureArray encrypted = cipher.process(data);
-    if (!cipher.ok()) return "Ошибка: Не удалось зашифровать";
+    QCA::Cipher cipher(QString("aes256"), QCA::Cipher::CBC,
+                      QCA::Cipher::DefaultPadding, QCA::Encode,
+                      symKey, iv);
 
-    return QString((iv + encrypted).toByteArray().toBase64());
+    QCA::SecureArray encrypted = cipher.process(text.toUtf8());
+    if (!cipher.ok()) {
+        return "Ошибка: Не удалось зашифровать текст";
+    }
+
+    QByteArray result;
+    result.append(iv.toByteArray());
+    result.append(encrypted.toByteArray());
+    return QString::fromLatin1(result.toBase64());
 }
 
 QString MainWindow::blowfishEncrypt(const QString& text, const QString& key, const QString& alphabet) {
     Q_UNUSED(alphabet);
-    if (text.isEmpty()) return "Ошибка: Пустой текст";
-    if (key.isEmpty()) return "Ошибка: Пустой ключ";
+    if (key.isEmpty()) {
+        return "Ошибка: Ключ не может быть пустым";
+    }
 
-    QCA::SymmetricKey symKey(key.toUtf8());
+    QCA::Hash hashObj("sha256");
+    hashObj.update(key.toUtf8());
+    QCA::SymmetricKey symKey(hashObj.final());
     QCA::InitializationVector iv(8);
-    QCA::Cipher cipher("blowfish", QCA::Cipher::CBC, QCA::Cipher::DefaultPadding, QCA::Encode, symKey, iv);
 
-    QCA::SecureArray data = text.toUtf8();
-    QCA::SecureArray encrypted = cipher.process(data);
-    if (!cipher.ok()) return "Ошибка: Не удалось зашифровать";
+    QCA::Cipher cipher(QString("blowfish"), QCA::Cipher::CBC,
+                      QCA::Cipher::DefaultPadding, QCA::Encode,
+                      symKey, iv);
 
-    return QString((iv + encrypted).toByteArray().toBase64());
+    QCA::SecureArray encrypted = cipher.process(text.toUtf8());
+    if (!cipher.ok()) {
+        return "Ошибка: Не удалось зашифровать текст";
+    }
+
+    QByteArray result;
+    result.append(iv.toByteArray());
+    result.append(encrypted.toByteArray());
+    return QString::fromLatin1(result.toBase64());
 }
 
 QString MainWindow::tripleDesEncrypt(const QString& text, const QString& key, const QString& alphabet) {
     Q_UNUSED(alphabet);
-    if (text.isEmpty()) {
-        qDebug() << "3DES Encrypt: Empty input text";
-        return "Ошибка: Пустой текст";
-    }
+
     if (key.isEmpty()) {
-        qDebug() << "3DES Encrypt: Empty key";
-        return "Ошибка: Пустой ключ";
+        return "Ошибка: Ключ не может быть пустым";
     }
 
-    QByteArray keyBytes = key.toUtf8();
-    qDebug() << "3DES Encrypt: Original key length (chars):" << key.length()
-             << "Key length (bytes after toUtf8):" << keyBytes.length();
+    QCA::Hash hashObj("sha256");
+    hashObj.update(key.toUtf8());
+    QCA::SymmetricKey symKey(hashObj.final());
+    QCA::InitializationVector iv(8);
 
-    if (keyBytes.length() < 24) {
-        keyBytes = keyBytes.leftJustified(24, '\0');
-        qDebug() << "3DES Encrypt: Key padded to 24 bytes";
-    } else if (keyBytes.length() > 24) {
-        keyBytes = keyBytes.left(24);
-        qDebug() << "3DES Encrypt: Key truncated to 24 bytes";
+    QCA::Cipher cipher(QString("3des"), QCA::Cipher::CBC,
+                      QCA::Cipher::DefaultPadding, QCA::Encode,
+                      symKey, iv);
+
+    QCA::SecureArray encrypted = cipher.process(text.toUtf8());
+    if (!cipher.ok()) {
+        return "Ошибка: Не удалось зашифровать текст";
     }
 
-    QCA::SymmetricKey symKey(keyBytes);
-    qDebug() << "3DES Encrypt: Symmetric key created, length:" << symKey.size();
-
-    QCA::Cipher cipher("tripledes", QCA::Cipher::ECB, QCA::Cipher::NoPadding, QCA::Encode, symKey);
-    qDebug() << "3DES Encrypt: Cipher initialized with ECB mode and NoPadding";
-
-    QCA::SecureArray data = text.toUtf8();
-    if (data.isEmpty()) {
-        qDebug() << "3DES Encrypt: Input data is empty after toUtf8";
-        return "Ошибка: Некорректные входные данные";
-    }
-    qDebug() << "3DES Encrypt: Input data length:" << data.size() << "Data (hex):" << data.toByteArray().toHex();
-
-    // Ручное дополнение данных до кратности 8 байт
-    QCA::SecureArray paddedData = padData(data, 8);
-
-    QCA::SecureArray encrypted = cipher.process(paddedData);
-    if (!cipher.ok() || encrypted.isEmpty()) {
-        qDebug() << "3DES Encrypt: Encryption failed. Cipher ok:" << cipher.ok()
-        << "Encrypted data length:" << encrypted.size();
-        return "Ошибка: Не удалось зашифровать";
-    }
-
-    qDebug() << "3DES Encrypt: Encryption successful. Encrypted data length:" << encrypted.size()
-             << "Data (hex):" << encrypted.toByteArray().toHex();
-    return QString(encrypted.toByteArray().toBase64());
+    QByteArray result;
+    result.append(iv.toByteArray());
+    result.append(encrypted.toByteArray());
+    return QString::fromLatin1(result.toBase64());
 }
 
 QString MainWindow::cast5Encrypt(const QString& text, const QString& key, const QString& alphabet) {
     Q_UNUSED(alphabet);
-    if (text.isEmpty()) return "Ошибка: Пустой текст";
-    if (key.isEmpty()) return "Ошибка: Пустой ключ";
+    if (key.isEmpty()) {
+        return "Ошибка: Ключ не может быть пустым";
+    }
 
-    QCA::SymmetricKey symKey(key.toUtf8());
+    QCA::Hash hashObj("sha256");
+    hashObj.update(key.toUtf8());
+    QCA::SymmetricKey symKey(hashObj.final());
     QCA::InitializationVector iv(8);
-    QCA::Cipher cipher("cast5", QCA::Cipher::CBC, QCA::Cipher::DefaultPadding, QCA::Encode, symKey, iv);
 
-    QCA::SecureArray data = text.toUtf8();
-    QCA::SecureArray encrypted = cipher.process(data);
-    if (!cipher.ok()) return "Ошибка: Не удалось зашифровать";
+    QCA::Cipher cipher(QString("cast5-cbc"), QCA::Cipher::CBC,
+                      QCA::Cipher::DefaultPadding, QCA::Encode,
+                      symKey, iv);
 
-    return QString((iv + encrypted).toByteArray().toBase64());
+    QCA::SecureArray encrypted = cipher.process(text.toUtf8());
+    if (!cipher.ok()) {
+        return "Ошибка: Не удалось зашифровать текст";
+    }
+
+    QByteArray result;
+    result.append(iv.toByteArray());
+    result.append(encrypted.toByteArray());
+    return QString::fromLatin1(result.toBase64());
+}
+
+// Реализации функций расшифровки
+QString MainWindow::rsaDecrypt(const QString& text, const QString& key) {
+    if (key.isEmpty()) {
+        return "Ошибка: Отсутствует приватный ключ";
+    }
+
+    QCA::PrivateKey privKey = QCA::PrivateKey::fromPEM(key);
+    if (privKey.isNull()) {
+        return "Ошибка: Неверный формат приватного ключа";
+    }
+
+    QByteArray cipherText = QByteArray::fromBase64(text.toLatin1());
+    QCA::SecureArray encryptedData(cipherText);
+    QCA::SecureArray decryptedData;
+
+    if (!privKey.decrypt(encryptedData, &decryptedData, QCA::EME_PKCS1_OAEP)) {
+        return "Ошибка: Не удалось расшифровать текст";
+    }
+
+    return QString::fromUtf8(decryptedData.toByteArray());
 }
 
 QString MainWindow::aes256Decrypt(const QString& text, const QString& key) {
-    if (text.isEmpty()) return "Ошибка: Пустой текст";
-    if (key.isEmpty()) return "Ошибка: Пустой ключ";
+    if (key.isEmpty()) {
+        return "Ошибка: Ключ не может быть пустым";
+    }
 
-    QByteArray encrypted = QByteArray::fromBase64(text.toUtf8());
-    if (encrypted.size() < 16) return "Ошибка: Неверный формат данных";
+    QByteArray combined = QByteArray::fromBase64(text.toLatin1());
+    if (combined.size() < 16) {
+        return "Ошибка: Неверный формат зашифрованных данных";
+    }
 
-    QCA::InitializationVector iv(encrypted.left(16));
-    QCA::SecureArray data(encrypted.mid(16));
-    QCA::SymmetricKey symKey(key.toUtf8());
-    QCA::Cipher cipher("aes256", QCA::Cipher::CBC, QCA::Cipher::DefaultPadding, QCA::Decode, symKey, iv);
+    QCA::InitializationVector iv(combined.left(16));
+    QByteArray cipherText = combined.mid(16);
 
-    QCA::SecureArray decrypted = cipher.process(data);
-    if (!cipher.ok()) return "Ошибка: Не удалось расшифровать";
+    QCA::Hash hash("sha256");
+    hash.update(key.toUtf8());
+    QCA::SymmetricKey symKey(hash.final());
 
-    return QString::fromUtf8(decrypted.data());
+    QCA::Cipher cipher(QString("aes256"), QCA::Cipher::CBC,
+                      QCA::Cipher::DefaultPadding, QCA::Decode,
+                      symKey, iv);
+
+    QCA::SecureArray decrypted = cipher.process(cipherText);
+    if (!cipher.ok()) {
+        return "Ошибка: Не удалось расшифровать текст";
+    }
+
+    return QString::fromUtf8(decrypted.toByteArray());
 }
 
 QString MainWindow::blowfishDecrypt(const QString& text, const QString& key) {
-    if (text.isEmpty()) return "Ошибка: Пустой текст";
-    if (key.isEmpty()) return "Ошибка: Пустой ключ";
+    if (key.isEmpty()) {
+        return "Ошибка: Ключ не может быть пустым";
+    }
 
-    QByteArray encrypted = QByteArray::fromBase64(text.toUtf8());
-    if (encrypted.size() < 8) return "Ошибка: Неверный формат данных";
+    QByteArray combined = QByteArray::fromBase64(text.toLatin1());
+    if (combined.size() < 8) {
+        return "Ошибка: Неверный формат зашифрованных данных";
+    }
 
-    QCA::InitializationVector iv(encrypted.left(8));
-    QCA::SecureArray data(encrypted.mid(8));
-    QCA::SymmetricKey symKey(key.toUtf8());
-    QCA::Cipher cipher("blowfish", QCA::Cipher::CBC, QCA::Cipher::DefaultPadding, QCA::Decode, symKey, iv);
+    QCA::InitializationVector iv(combined.left(8));
+    QByteArray cipherText = combined.mid(8);
 
-    QCA::SecureArray decrypted = cipher.process(data);
-    if (!cipher.ok()) return "Ошибка: Не удалось расшифровать";
+    QCA::Hash hashObj("sha256");
+    hashObj.update(key.toUtf8());
+    QCA::SymmetricKey symKey(hashObj.final());
 
-    return QString::fromUtf8(decrypted.data());
+    QCA::Cipher cipher(QString("blowfish"), QCA::Cipher::CBC,
+                      QCA::Cipher::DefaultPadding, QCA::Decode,
+                      symKey, iv);
+
+    QCA::SecureArray decrypted = cipher.process(cipherText);
+    if (!cipher.ok()) {
+        return "Ошибка: Не удалось расшифровать текст";
+    }
+
+    return QString::fromUtf8(decrypted.toByteArray());
 }
 
 QString MainWindow::tripleDesDecrypt(const QString& text, const QString& key) {
-    if (text.isEmpty()) {
-        qDebug() << "3DES Decrypt: Empty input text";
-        return "Ошибка: Пустой текст";
-    }
     if (key.isEmpty()) {
-        qDebug() << "3DES Decrypt: Empty key";
-        return "Ошибка: Пустой ключ";
+        return "Ошибка: Ключ не может быть пустым";
     }
 
-    QByteArray encrypted = QByteArray::fromBase64(text.toUtf8());
-    if (encrypted.isEmpty()) {
-        qDebug() << "3DES Decrypt: Invalid Base64 data";
-        return "Ошибка: Неверный формат данных";
-    }
-    qDebug() << "3DES Decrypt: Encrypted data length:" << encrypted.size()
-             << "Data (hex):" << encrypted.toHex();
-
-    QByteArray keyBytes = key.toUtf8();
-    qDebug() << "3DES Decrypt: Original key length (chars):" << key.length()
-             << "Key length (bytes after toUtf8):" << keyBytes.length();
-
-    if (keyBytes.length() < 24) {
-        keyBytes = keyBytes.leftJustified(24, '\0');
-        qDebug() << "3DES Decrypt: Key padded to 24 bytes";
-    } else if (keyBytes.length() > 24) {
-        keyBytes = keyBytes.left(24);
-        qDebug() << "3DES Decrypt: Key truncated to 24 bytes";
+    QByteArray combined = QByteArray::fromBase64(text.toLatin1());
+    if (combined.size() < 8) {
+        return "Ошибка: Неверный формат зашифрованных данных";
     }
 
-    QCA::SymmetricKey symKey(keyBytes);
-    qDebug() << "3DES Decrypt: Symmetric key created, length:" << symKey.size();
+    QCA::InitializationVector iv(combined.left(8));
+    QByteArray cipherText = combined.mid(8);
 
-    QCA::Cipher cipher("tripledes", QCA::Cipher::ECB, QCA::Cipher::NoPadding, QCA::Decode, symKey);
-    qDebug() << "3DES Decrypt: Cipher initialized with ECB mode and NoPadding";
+    QCA::Hash hashObj("sha256");
+    hashObj.update(key.toUtf8());
+    QCA::SymmetricKey symKey(hashObj.final());
 
-    QCA::SecureArray data(encrypted);
-    QCA::SecureArray decrypted = cipher.process(data);
-    if (!cipher.ok() || decrypted.isEmpty()) {
-        qDebug() << "3DES Decrypt: Decryption failed. Cipher ok:" << cipher.ok()
-        << "Decrypted data length:" << decrypted.size();
-        return "Ошибка: Не удалось расшифровать";
+    QCA::Cipher cipher(QString("3des"), QCA::Cipher::CBC,
+                      QCA::Cipher::DefaultPadding, QCA::Decode,
+                      symKey, iv);
+
+    QCA::SecureArray decrypted = cipher.process(cipherText);
+    if (!cipher.ok()) {
+        return "Ошибка: Не удалось расшифровать текст";
     }
 
-    // Удаляем дополнение
-    QCA::SecureArray unpaddedData = unpadData(decrypted);
-    qDebug() << "3DES Decrypt: Decryption successful. Decrypted data length:" << unpaddedData.size()
-             << "Data (hex):" << unpaddedData.toByteArray().toHex();
-
-    QString result = QString::fromUtf8(unpaddedData.data(), unpaddedData.size());
-    qDebug() << "3DES Decrypt: Decoded result:" << result;
-    return result;
+    return QString::fromUtf8(decrypted.toByteArray());
 }
 
 QString MainWindow::cast5Decrypt(const QString& text, const QString& key) {
-    if (text.isEmpty()) return "Ошибка: Пустой текст";
-    if (key.isEmpty()) return "Ошибка: Пустой ключ";
+    if (key.isEmpty()) {
+        return "Ошибка: Ключ не может быть пустым";
+    }
 
-    QByteArray encrypted = QByteArray::fromBase64(text.toUtf8());
-    if (encrypted.size() < 8) return "Ошибка: Неверный формат данных";
+    QByteArray combined = QByteArray::fromBase64(text.toLatin1());
+    if (combined.size() < 8) {
+        return "Ошибка: Неверный формат зашифрованных данных";
+    }
 
-    QCA::InitializationVector iv(encrypted.left(8));
-    QCA::SecureArray data(encrypted.mid(8));
-    QCA::SymmetricKey symKey(key.toUtf8());
-    QCA::Cipher cipher("cast5", QCA::Cipher::CBC, QCA::Cipher::DefaultPadding, QCA::Decode, symKey, iv);
+    QCA::InitializationVector iv(combined.left(8));
+    QByteArray cipherText = combined.mid(8);
 
-    QCA::SecureArray decrypted = cipher.process(data);
-    if (!cipher.ok()) return "Ошибка: Не удалось расшифровать";
+    QCA::Hash hashObj("sha256");
+    hashObj.update(key.toUtf8());
+    QCA::SymmetricKey symKey(hashObj.final());
 
-    return QString::fromUtf8(decrypted.data());
+    QCA::Cipher cipher(QString("cast5"), QCA::Cipher::CBC,
+                      QCA::Cipher::DefaultPadding, QCA::Decode,
+                      symKey, iv);
+
+    QCA::SecureArray decrypted = cipher.process(cipherText);
+    if (!cipher.ok()) {
+        return "Ошибка: Не удалось расшифровать текст";
+    }
+
+    return QString::fromUtf8(decrypted.toByteArray());
 }
 
-// Вспомогательные функции для ручного дополнения и удаления дополнения
-QCA::SecureArray MainWindow::padData(const QCA::SecureArray& data, int blockSize) {
-    int paddingSize = blockSize - (data.size() % blockSize);
-    QCA::SecureArray paddedData(data);
-    paddedData.resize(data.size() + paddingSize);
-    for (int i = 0; i < paddingSize; ++i) {
-        paddedData[data.size() + i] = static_cast<char>(paddingSize);
-    }
-    qDebug() << "Padded data length:" << paddedData.size() << "Data (hex):" << paddedData.toByteArray().toHex();
-    return paddedData;
+// Функции генерации ключей
+void MainWindow::generateCaesarKey() {
+    int key = QRandomGenerator::global()->bounded(1, 26);
+    ui->caesarKeyInput->setText(QString::number(key));
 }
 
-QCA::SecureArray MainWindow::unpadData(const QCA::SecureArray& data) {
-    if (data.isEmpty()) return data;
-    int paddingSize = static_cast<unsigned char>(data[data.size() - 1]);
-    if (paddingSize > data.size() || paddingSize == 0) {
-        qDebug() << "Invalid padding size:" << paddingSize;
-        return data; // Некорректное дополнение, возвращаем как есть
+void MainWindow::generateBeaufortKey() {
+    QString alphabet = currentAlphabet;
+    int length = QRandomGenerator::global()->bounded(3, 8); // Длина ключа от 3 до 7 символов
+    QString key;
+    for(int i = 0; i < length; i++) {
+        int index = QRandomGenerator::global()->bounded(alphabet.length());
+        key += alphabet[index];
     }
-    // Проверяем, что все байты дополнения корректны
-    for (int i = 0; i < paddingSize; ++i) {
-        if (static_cast<unsigned char>(data[data.size() - 1 - i]) != paddingSize) {
-            qDebug() << "Invalid padding bytes at position" << (data.size() - 1 - i);
-            return data;
-        }
+    ui->beaufortKeyInput->setText(key);
+}
+
+void MainWindow::generateKuznechikKey() {
+    QString key;
+    // Генерируем 64 hex-символа (32 байта)
+    for(int i = 0; i < 64; i++) {
+        key += QString::number(QRandomGenerator::global()->bounded(16), 16);
     }
-    QCA::SecureArray unpaddedData(data);
-    unpaddedData.resize(data.size() - paddingSize);
-    qDebug() << "Unpadded data length:" << unpaddedData.size() << "Data (hex):" << unpaddedData.toByteArray().toHex();
-    return unpaddedData;
+    ui->kuznechikKeyInput->setText(key.toLower());
+}
+
+void MainWindow::generateKuznechikVector() {
+    QString vector;
+    // Генерируем 16 hex-символов (8 байт)
+    for(int i = 0; i < 16; i++) {
+        vector += QString::number(QRandomGenerator::global()->bounded(16), 16);
+    }
+    ui->kuznechikVectorInput->setText(vector.toLower());
+}
+
+void MainWindow::generateAes256Key() {
+    QCA::SecureArray secureKey = QCA::Random::randomArray(32);
+    QByteArray key = secureKey.toByteArray();
+    ui->aes256KeyInput->setText(QString::fromLatin1(key.toBase64()));
+}
+
+void MainWindow::generateBlowfishKey() {
+    QCA::SecureArray secureKey = QCA::Random::randomArray(16);
+    QByteArray key = secureKey.toByteArray();
+    ui->blowfishKeyInput->setText(QString::fromLatin1(key.toBase64()));
+}
+
+void MainWindow::generateTripleDesKey() {
+    QCA::SecureArray secureKey = QCA::Random::randomArray(24);
+    QByteArray key = secureKey.toByteArray();
+    ui->tripleDesKeyInput->setText(QString::fromLatin1(key.toBase64()));
+}
+
+void MainWindow::generateCast5Key() {
+    QCA::SecureArray secureKey = QCA::Random::randomArray(16);
+    QByteArray key = secureKey.toByteArray();
+    ui->cast5KeyInput->setText(QString::fromLatin1(key.toBase64()));
+
 }

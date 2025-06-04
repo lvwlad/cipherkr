@@ -3,76 +3,84 @@
 #include <QTextStream>
 #include <QJsonObject>
 #include <QJsonDocument>
+#include <QDateTime>
+#include <QString>
 
-QString getCipherDescription(const QString& cipherName) {
+QString Exporter::getCipherDescription(const QString& cipherName) {
     if (cipherName == "Caesar") {
-        return "Шифр Цезаря: каждый символ текста сдвигается на фиксированное количество позиций в алфавите. Ключ определяет величину сдвига.";
+        return QString("Шифр Цезаря: каждый символ текста сдвигается на фиксированное количество позиций в алфавите. Ключ определяет величину сдвига.");
     } else if (cipherName == "Atbash") {
-        return "Шифр Атбаш: каждый символ заменяется на противоположный в алфавите (например, A на Z, B на Y). Ключ не требуется.";
+        return QString("Шифр Атбаш: каждый символ заменяется на противоположный в алфавите (например, A на Z, B на Y). Ключ не требуется.");
     } else if (cipherName == "Beaufort") {
-        return "Шифр Бофора: использует ключ для вычисления разницы между позициями символов ключа и текста в алфавите. Ключ повторяется до длины текста.";
+        return QString("Шифр Бофора: использует ключ для вычисления разницы между позициями символов ключа и текста в алфавите. Ключ повторяется до длины текста.");
     } else if (cipherName == "Kuznechik") {
-        return "Шифр Кузнечик (упрощённая версия): текст побитово XOR'ится с ключом. Результат кодируется в Base64.";
+        return QString("Шифр Кузнечик: российский стандарт блочного шифрования с размером блока 128 бит и длиной ключа 256 бит.");
     } else if (cipherName == "RSA") {
-        return "RSA: асимметричный шифр. Текст шифруется публичным ключом с использованием OAEP padding. Результат кодируется в Base64.";
+        return QString("RSA: асимметричный шифр. Текст шифруется публичным ключом с использованием OAEP padding. Результат кодируется в Base64.");
     } else if (cipherName == "AES-256") {
-        return "AES-256: симметричный шифр с 256-битным ключом в режиме CBC. Данные дополняются до кратности 16 байт, результат кодируется в Base64.";
+        return QString("AES-256: симметричный шифр с 256-битным ключом в режиме CBC. Данные дополняются до кратности 16 байт, результат кодируется в Base64.");
     } else if (cipherName == "Blowfish") {
-        return "Blowfish: симметричный шифр в режиме CBC. Данные дополняются до кратности 8 байт, результат кодируется в Base64.";
+        return QString("Blowfish: симметричный шифр в режиме CBC. Данные дополняются до кратности 8 байт, результат кодируется в Base64.");
     } else if (cipherName == "3DES") {
-        return "3DES: симметричный шифр с тройным применением DES в режиме ECB. Данные дополняются до кратности 8 байт, результат кодируется в Base64.";
+        return QString("3DES: симметричный шифр с тройным применением DES в режиме CBC. Данные дополняются до кратности 8 байт, результат кодируется в Base64.");
     } else if (cipherName == "CAST5") {
-        return "CAST5: симметричный шифр в режиме CBC. Данные дополняются до кратности 8 байт, результат кодируется в Base64.";
+        return QString("CAST5: симметричный шифр в режиме CBC. Данные дополняются до кратности 8 байт, результат кодируется в Base64.");
     }
-    return "Неизвестный шифр.";
+    return QString("Неизвестный шифр.");
 }
 
-bool Exporter::exportToText(const QString& filename, const QString& input, const QString& output, const QString& cipherName, const QString& publicKey, const QString& privateKey) {
+bool Exporter::exportToText(const QString& filename, const QString& input, const QString& output, const QString& cipherName) {
     QFile file(filename);
     if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
         return false;
     }
 
     QTextStream out(&file);
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
+    out.setCodec("UTF-8");
+#endif
     out << "Исходный текст:\n" << input << "\n\n";
-    out << "Зашифрованный текст:\n" << output << "\n\n";
+    out << "Результат:\n" << output << "\n\n";
     out << "Использованный шифр: " << cipherName << "\n";
     out << "Описание шифра:\n" << getCipherDescription(cipherName) << "\n";
 
-    if (!publicKey.isEmpty() && !privateKey.isEmpty()) {
-        out << "\nПубличный ключ (для RSA):\n" << publicKey << "\n";
-        out << "Приватный ключ (для RSA):\n" << privateKey << "\n";
-    }
-
     file.close();
     return true;
 }
 
-bool Exporter::exportToHtml(const QString& filename, const QString& input, const QString& output, const QString& cipherName, const QString& publicKey, const QString& privateKey) {
+bool Exporter::exportToHtml(const QString& filename, const QString& input, const QString& output, const QString& cipherName) {
     QFile file(filename);
     if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
         return false;
     }
 
     QTextStream out(&file);
-    out << "<!DOCTYPE html>\n<html>\n<head><title>Результат шифрования</title></head>\n<body>\n";
-    out << "<h2>Исходный текст:</h2>\n<p>" << input.toHtmlEscaped() << "</p>\n";
-    out << "<h2>Зашифрованный текст:</h2>\n<p>" << output.toHtmlEscaped() << "</p>\n";
-    out << "<h2>Использованный шифр:</h2>\n<p>" << cipherName << "</p>\n";
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
+    out.setCodec("UTF-8");
+#endif
+    out << "<!DOCTYPE html>\n<html>\n<head>\n";
+    out << "<meta charset=\"UTF-8\">\n";
+    out << "<title>Результат шифрования</title>\n";
+    out << "<style>\n";
+    out << "body { font-family: Arial, sans-serif; margin: 40px; line-height: 1.6; }\n";
+    out << "h1 { color: #2196F3; }\n";
+    out << "h2 { color: #1976D2; margin-top: 20px; }\n";
+    out << ".content { background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }\n";
+    out << ".text-block { background: #f5f5f5; padding: 15px; border-radius: 4px; margin: 10px 0; }\n";
+    out << "</style>\n</head>\n<body>\n";
+    out << "<div class=\"content\">\n";
+    out << "<h1>Результат шифрования</h1>\n";
+    out << "<h2>Исходный текст:</h2>\n<div class=\"text-block\">" << input.toHtmlEscaped() << "</div>\n";
+    out << "<h2>Результат:</h2>\n<div class=\"text-block\">" << output.toHtmlEscaped() << "</div>\n";
+    out << "<h2>Использованный шифр:</h2>\n<p>" << cipherName.toHtmlEscaped() << "</p>\n";
     out << "<h2>Описание шифра:</h2>\n<p>" << getCipherDescription(cipherName).toHtmlEscaped() << "</p>\n";
+    out << "</div>\n</body>\n</html>";
 
-    if (!publicKey.isEmpty() && !privateKey.isEmpty()) {
-        out << "<h2>Ключи (для RSA):</h2>\n";
-        out << "<p><strong>Публичный ключ:</strong><br>" << publicKey.toHtmlEscaped() << "</p>\n";
-        out << "<p><strong>Приватный ключ:</strong><br>" << privateKey.toHtmlEscaped() << "</p>\n";
-    }
-
-    out << "</body>\n</html>";
     file.close();
     return true;
 }
 
-bool Exporter::exportToJson(const QString& filename, const QString& input, const QString& output, const QString& cipherName, const QString& publicKey, const QString& privateKey) {
+bool Exporter::exportToJson(const QString& filename, const QString& input, const QString& output, const QString& cipherName) {
     QFile file(filename);
     if (!file.open(QIODevice::WriteOnly)) {
         return false;
@@ -80,14 +88,10 @@ bool Exporter::exportToJson(const QString& filename, const QString& input, const
 
     QJsonObject jsonObj;
     jsonObj["input_text"] = input;
-    jsonObj["encrypted_text"] = output;
+    jsonObj["output_text"] = output;
     jsonObj["cipher_name"] = cipherName;
     jsonObj["cipher_description"] = getCipherDescription(cipherName);
-
-    if (!publicKey.isEmpty() && !privateKey.isEmpty()) {
-        jsonObj["public_key"] = publicKey;
-        jsonObj["private_key"] = privateKey;
-    }
+    jsonObj["timestamp"] = QDateTime::currentDateTime().toString(Qt::ISODate);
 
     QJsonDocument doc(jsonObj);
     file.write(doc.toJson(QJsonDocument::Indented));
@@ -95,17 +99,13 @@ bool Exporter::exportToJson(const QString& filename, const QString& input, const
     return true;
 }
 
-bool Exporter::exportToFile(const QString& filename, const QString& input, const QString& output, const QString& cipherName, const QString& publicKey, const QString& privateKey, const QString& format) {
+bool Exporter::exportData(const QString& filename, const QString& format, const QString& input, const QString& output, const QString& cipherName) {
     if (format == "txt") {
-        return Exporter::exportToText(filename, input, output, cipherName, publicKey, privateKey);
+        return exportToText(filename, input, output, cipherName);
     } else if (format == "html") {
-        return Exporter::exportToHtml(filename, input, output, cipherName, publicKey, privateKey);
+        return exportToHtml(filename, input, output, cipherName);
     } else if (format == "json") {
-        return Exporter::exportToJson(filename, input, output, cipherName, publicKey, privateKey);
+        return exportToJson(filename, input, output, cipherName);
     }
     return false;
-}
-
-bool Exporter::exportToFile(const QString& filename, const QString& input, const QString& output, const QString& cipherName) {
-    return exportToFile(filename, input, output, cipherName, QString(), QString(), "txt");
 }
