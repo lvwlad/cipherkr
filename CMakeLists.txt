@@ -9,14 +9,17 @@ set(CMAKE_AUTORCC ON)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# Добавляем путь к Qt
+set(CMAKE_PREFIX_PATH "/opt/homebrew/opt/qt@6/lib/cmake" ${CMAKE_PREFIX_PATH})
+
 # Добавляем путь к QCA
-set(CMAKE_PREFIX_PATH "C:/msys64/mingw64/lib/cmake")
+set(CMAKE_PREFIX_PATH "/opt/homebrew/Cellar/qca/2.3.10_1/lib/cmake" ${CMAKE_PREFIX_PATH})
 
 # Подключаем Qt
-find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets)
-find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets)
+find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets Core Gui)
+find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets Core Gui)
 
-# Подключаем QCA (важно: правильное имя!)
+# Подключаем QCA
 find_package(Qca-qt6 REQUIRED)
 
 # Источники проекта
@@ -54,11 +57,20 @@ else()
 endif()
 
 # Линковка с Qt и QCA
-target_link_libraries(test PRIVATE Qt${QT_VERSION_MAJOR}::Widgets Qca-qt6)
-target_include_directories(test PRIVATE
-    "C:/msys64/mingw64/include/qt6/Qca-qt6"
+target_link_libraries(test PRIVATE 
+    Qt${QT_VERSION_MAJOR}::Widgets 
+    Qt${QT_VERSION_MAJOR}::Core
+    Qt${QT_VERSION_MAJOR}::Gui
+    qca-qt6
 )
 
+target_include_directories(test PRIVATE
+    "/opt/homebrew/opt/qt@6/include"
+    "/opt/homebrew/opt/qt@6/include/QtWidgets"
+    "/opt/homebrew/opt/qt@6/include/QtCore"
+    "/opt/homebrew/opt/qt@6/include/QtGui"
+    "/opt/homebrew/Cellar/qca/2.3.10_1/lib/qca-qt6.framework/Headers"
+)
 
 # Свойства для macOS/iOS
 if(${QT_VERSION} VERSION_LESS 6.1.0)

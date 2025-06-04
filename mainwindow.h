@@ -2,9 +2,12 @@
 #define MAINWINDOW_H
 
 #include <QMainWindow>
+#include <QWidget>
+#include <QStyle>
+#include <QApplication>
 #include "exporter.h"
 #include "exportformatdialog.h"
-#include <QtCrypto/QtCrypto>
+#include <QtCrypto>
 #include "kuz_calc.h"
 #include <functional>
 
@@ -29,6 +32,16 @@ private slots:
     void encryptText();
     void decryptText();
     void exportResult();
+    
+    // Слоты для генерации ключей
+    void generateCaesarKey();
+    void generateBeaufortKey();
+    void generateKuznechikKey();
+    void generateKuznechikVector();
+    void generateAes256Key();
+    void generateBlowfishKey();
+    void generateTripleDesKey();
+    void generateCast5Key();
 
 private:
     Ui::MainWindow* ui;
@@ -36,7 +49,9 @@ private:
     QString rsaPublicKey;
     QString rsaPrivateKey;
     QVector<QString> cipherNames;
-    QVector<std::function<QString(MainWindow*, const QString&, const QString&, const QString&)>> cipherFuncs;
+    //QVector<std::function<QString(MainWindow*, const QString&, const QString&, const QString&)>> cipherFuncs;
+    using CipherFunc = QString (MainWindow::*)(const QString&, const QString&, const QString&);
+    QList<CipherFunc> cipherFuncs;
 
     // Функции шифрования
     QString caesarEncrypt(const QString& text, const QString& key, const QString& alphabet);
