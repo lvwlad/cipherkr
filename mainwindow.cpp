@@ -11,6 +11,7 @@
 #include <functional>
 #include <QFormLayout>
 
+
 MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWindow) {
     ui->setupUi(this);
     
@@ -41,6 +42,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWi
     ui->alphabetSelector->addItem("Russian (А-Я)");
     ui->alphabetSelector->addItem("Custom");
 
+
     // Валидаторы для Kuznechik
     QRegularExpression hexRegex("^[0-9a-fA-F]*$");
     QValidator* hexValidator = new QRegularExpressionValidator(hexRegex, this);
@@ -54,6 +56,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWi
     connect(ui->privateKeyInput, &QPlainTextEdit::textChanged, this, [&]() {
         ui->privateKeyInput->setToolTip("Нажмите правой кнопкой мыши для копирования");
     });
+
 
     // Инициализация функций шифрования (мой подход)
     cipherFuncs = {
@@ -90,6 +93,16 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWi
 
     // Инициализация QCA
     static QCA::Initializer init;
+    qDebug() << "QCA Providers:";
+    foreach (QCA::Provider* provider, QCA::providers()) {
+        qDebug() << "  - Provider:" << provider->name() << "(Features:" << provider->features().join(", ") << ")";
+    }
+    if (!QCA::isSupported("rsa")) {
+        qDebug() << "RSA support is not available in QCA";
+        QMessageBox::critical(this, "Ошибка", "RSA support is not available. Check QCA installation.");
+    } else {
+        qDebug() << "RSA support is available";
+    }
 
     // Инициализация начального состояния
     onAlphabetChanged(0);
@@ -159,6 +172,8 @@ void MainWindow::generateRsaKeys() {
     QCA::PrivateKey privateKey = keyGen.createRSA(2048);
     if (privateKey.isNull()) {
         QMessageBox::warning(this, "Ошибка", "Не удалось сгенерировать ключи.");
+        rsaPublicKey.clear();
+        rsaPrivateKey.clear();
         return;
     }
     QCA::PublicKey publicKey = privateKey.toPublicKey();
@@ -166,6 +181,8 @@ void MainWindow::generateRsaKeys() {
     rsaPrivateKey = privateKey.toPEM();
     ui->publicKeyInput->setPlainText(rsaPublicKey);
     ui->privateKeyInput->setPlainText(rsaPrivateKey);
+    qDebug() << "Generated public key length:" << rsaPublicKey.length();
+    qDebug() << "Generated private key length:" << rsaPrivateKey.length();
 }
 
 QString MainWindow::crypt(QString data) {
@@ -215,6 +232,7 @@ void MainWindow::encryptText() {
         QMessageBox::warning(this, "Ошибка", "Введите текст для шифрования.");
         return;
     }
+
 
     try {
         // Получить ключ и вектор в зависимости от шифра
@@ -278,6 +296,7 @@ void MainWindow::encryptText() {
                     throw QString("Введите ключ для шифра " + cipherName);
                 }
             }
+
         }
 
         result = std::invoke(cipherFuncs[idx], this, text, key, currentAlphabet);
@@ -304,6 +323,7 @@ void MainWindow::decryptText() {
         QMessageBox::warning(this, "Ошибка", "Введите текст для расшифровки.");
         return;
     }
+
 
     try {
         // Получаем ключ в зависимости от шифра
@@ -386,6 +406,7 @@ void MainWindow::decryptText() {
             }
         }
 
+
         if (result.startsWith("Ошибка:")) {
             throw result;
         }
@@ -399,9 +420,11 @@ void MainWindow::decryptText() {
 }
 
 void MainWindow::exportResult() {
+
     QString content = ui->outputText->toPlainText();
     if (content.isEmpty()) {
         QMessageBox::warning(this, "Ошибка", "Нет данных для экспорта.");
+
         return;
     }
 
@@ -410,6 +433,7 @@ void MainWindow::exportResult() {
     if (formatDialog.exec() != QDialog::Accepted) {
         return;
     }
+
 
     // Получаем выбранный формат
     QString format = formatDialog.getSelectedFormat();
@@ -422,6 +446,7 @@ void MainWindow::exportResult() {
     
     // Открываем диалог сохранения файла с соответствующим расширением
     QString fileFilter;
+
     if (format == "txt") {
         fileFilter = "Text Files (*.txt)";
     } else if (format == "html") {
@@ -433,6 +458,7 @@ void MainWindow::exportResult() {
         return;
     }
 
+
     QString fileName = QFileDialog::getSaveFileName(this,
         "Сохранить результат",
         QString(),
@@ -441,6 +467,7 @@ void MainWindow::exportResult() {
     if (fileName.isEmpty()) {
         return;
     }
+
 
     // Добавляем расширение, если его нет
     if (!fileName.endsWith("." + format)) {
@@ -466,8 +493,8 @@ void MainWindow::exportResult() {
     }
 }
 
-// Реализации функций шифрования
 QString MainWindow::caesarEncrypt(const QString& text, const QString& key, const QString& alphabet) {
+
     bool ok;
     int shift = key.toInt(&ok);
     if (!ok) {
@@ -490,6 +517,7 @@ QString MainWindow::caesarEncrypt(const QString& text, const QString& key, const
 
 QString MainWindow::atbashEncrypt(const QString& text, const QString& key, const QString& alphabet) {
     Q_UNUSED(key);
+
     QString result;
     for (QChar c : text) {
         int idx = alphabet.indexOf(c.toUpper());
@@ -504,6 +532,7 @@ QString MainWindow::atbashEncrypt(const QString& text, const QString& key, const
 }
 
 QString MainWindow::beaufortEncrypt(const QString& text, const QString& key, const QString& alphabet) {
+
     if (key.isEmpty()) {
         return "Ошибка: Ключ не может быть пустым";
     }
@@ -609,6 +638,7 @@ QString MainWindow::blowfishEncrypt(const QString& text, const QString& key, con
 
 QString MainWindow::tripleDesEncrypt(const QString& text, const QString& key, const QString& alphabet) {
     Q_UNUSED(alphabet);
+
     if (key.isEmpty()) {
         return "Ошибка: Ключ не может быть пустым";
     }
@@ -854,4 +884,5 @@ void MainWindow::generateCast5Key() {
     QCA::SecureArray secureKey = QCA::Random::randomArray(16);
     QByteArray key = secureKey.toByteArray();
     ui->cast5KeyInput->setText(QString::fromLatin1(key.toBase64()));
+
 }
